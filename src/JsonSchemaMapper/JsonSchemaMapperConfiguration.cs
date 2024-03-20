@@ -1,4 +1,8 @@
-﻿using System.ComponentModel;
+﻿// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+
+using System;
+using System.ComponentModel;
 
 namespace JsonSchemaMapper;
 
@@ -42,9 +46,9 @@ public class JsonSchemaMapperConfiguration
     /// Determines whether nullability should be included in the schema for reference types.
     /// </summary>
     /// <remarks>
-    /// Defaults to false. Currently STJ doesn't recognize non-nullable reference types 
-    /// (https://github.com/dotnet/runtime/issues/1256) so the serializer will always treat 
-    /// them as nullable. Enabling this option improves accuracy of the generated schema 
+    /// Defaults to false. Currently STJ doesn't recognize non-nullable reference types
+    /// (https://github.com/dotnet/runtime/issues/1256) so the serializer will always treat
+    /// them as nullable. Enabling this option improves accuracy of the generated schema
     /// with respect to the actual serialization behavior but can result in more noise.
     /// </remarks>
     public bool AllowNullForReferenceTypes { get; init; }
