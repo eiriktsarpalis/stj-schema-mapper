@@ -70,6 +70,12 @@ public static class JsonSchemaMapper
 
     private static JsonObject ToJsonSchemaCore(JsonTypeInfo typeInfo, JsonSchemaMapperConfiguration? configuration)
     {
+        if (typeInfo.Options.ReferenceHandler == ReferenceHandler.Preserve)
+        {
+            Throw();
+            static void Throw() => throw new NotSupportedException("Schema generation not supported with ReferenceHandler.Preserve enabled.");
+        }
+
         typeInfo.MakeReadOnly();
         var state = new GenerationState(configuration ?? JsonSchemaMapperConfiguration.Default);
         return MapJsonSchemaCore(typeInfo, ref state);

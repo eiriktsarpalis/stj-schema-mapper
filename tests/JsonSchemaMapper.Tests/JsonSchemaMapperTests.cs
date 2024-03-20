@@ -34,43 +34,6 @@ public abstract class JsonSchemaMapperTests
         Helpers.AssertDocumentMatchesSchema(schema, instance);
     }
 
-    [Fact]
-    public void GetJsonSchema_NullInputs_ThrowsArgumentNullException()
-    {
-        Assert.Throws<ArgumentNullException>(() => ((JsonSerializerOptions)null!).GetJsonSchema(typeof(int)));
-        Assert.Throws<ArgumentNullException>(() => Options.GetJsonSchema(null!));
-    }
-
-    [Fact]
-    public void ToJsonSchema_NullInputs_ThrowsArgumentNullException()
-    {
-        Assert.Throws<ArgumentNullException>(() => ((JsonTypeInfo)null!).ToJsonSchema());
-    }
-
-    [Fact]
-    public void GetJsonSchema_RequiresReadOnlyOptions()
-    {
-        var options = new JsonSerializerOptions(Options);
-        Assert.False(options.IsReadOnly);
-        Assert.Throws<InvalidOperationException>(() => options.GetJsonSchema(typeof(int)));
-    }
-
-    [Fact]
-    public void AllowSchemaReferences_Disabled_RecursiveType_ThrowsInvalidOperationException()
-    {
-        var config = new JsonSchemaMapperConfiguration { AllowSchemaReferences = false };
-        var ex = Assert.Throws<InvalidOperationException>(() => Options.GetJsonSchema(typeof(TestTypes.PocoWithRecursiveMembers), config));
-        Assert.Contains("The maximum depth of the schema has been reached", ex.Message);
-    }
-
-    [Fact]
-    public void MaxDepth_SetToZero_NonTrivialSchema_ThrowsInvalidOperationException()
-    {
-        var config = new JsonSchemaMapperConfiguration { MaxDepth = 0 };
-        var ex = Assert.Throws<InvalidOperationException>(() => Options.GetJsonSchema(typeof(TestTypes.SimplePoco), config));
-        Assert.Contains("The maximum depth of the schema has been reached", ex.Message);
-    }
-
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -143,6 +106,53 @@ public abstract class JsonSchemaMapperTests
         JsonObject schema = Options.GetJsonSchema(typeof(TestTypes.PocoDisallowingUnmappedMembers));
         JsonNode? jsonWithUnmappedProperties = JsonNode.Parse("""{ "UnmappedProperty" : {} }""");
         Helpers.AssertDoesNotMatchSchema(schema, jsonWithUnmappedProperties);
+    }
+
+    [Fact]
+    public void GetJsonSchema_NullInputs_ThrowsArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => ((JsonSerializerOptions)null!).GetJsonSchema(typeof(int)));
+        Assert.Throws<ArgumentNullException>(() => Options.GetJsonSchema(null!));
+    }
+
+    [Fact]
+    public void ToJsonSchema_NullInputs_ThrowsArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => ((JsonTypeInfo)null!).ToJsonSchema());
+    }
+
+    [Fact]
+    public void GetJsonSchema_RequiresReadOnlyOptions()
+    {
+        var options = new JsonSerializerOptions(Options);
+        Assert.False(options.IsReadOnly);
+        Assert.Throws<InvalidOperationException>(() => options.GetJsonSchema(typeof(int)));
+    }
+
+    [Fact]
+    public void AllowSchemaReferences_Disabled_RecursiveType_ThrowsInvalidOperationException()
+    {
+        var config = new JsonSchemaMapperConfiguration { AllowSchemaReferences = false };
+        var ex = Assert.Throws<InvalidOperationException>(() => Options.GetJsonSchema(typeof(TestTypes.PocoWithRecursiveMembers), config));
+        Assert.Contains("The maximum depth of the schema has been reached", ex.Message);
+    }
+
+    [Fact]
+    public void MaxDepth_SetToZero_NonTrivialSchema_ThrowsInvalidOperationException()
+    {
+        var config = new JsonSchemaMapperConfiguration { MaxDepth = 0 };
+        var ex = Assert.Throws<InvalidOperationException>(() => Options.GetJsonSchema(typeof(TestTypes.SimplePoco), config));
+        Assert.Contains("The maximum depth of the schema has been reached", ex.Message);
+    }
+
+    [Fact]
+    public void ReferenceHandlePreserve_Enabled_ThrowsNotSupportedException()
+    {
+        var options = new JsonSerializerOptions(Options) { ReferenceHandler = ReferenceHandler.Preserve };
+        options.MakeReadOnly();
+
+        var ex = Assert.Throws<NotSupportedException>(() => options.GetJsonSchema(typeof(TestTypes.SimplePoco)));
+        Assert.Contains("ReferenceHandler.Preserve", ex.Message);
     }
 }
 
