@@ -210,6 +210,11 @@ public static class JsonSchemaMapper
                         continue; // Skip [JsonIgnore] property
                     }
 
+                    if (property.IsExtensionData)
+                    {
+                        continue; // Extension data properties have no impact on the schema
+                    }
+
                     JsonNumberHandling? propertyNumberHandling = property.NumberHandling ?? effectiveNumberHandling;
                     JsonTypeInfo propertyTypeInfo = typeInfo.Options.GetTypeInfo(property.PropertyType);
                     string? propertyDescription = state.Configuration.ResolveDescriptionAttributes

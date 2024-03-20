@@ -163,6 +163,10 @@ internal static partial class TestTypes
                 }
                 """);
 
+        yield return new TestData<PocoWithExtensionDataProperty>(
+            Value: new() { Name = "name", ExtensionData = new() { ["x"] = 42 } },
+            ExpectedJsonSchema: """{"type":"object","properties":{"Name":{"type":"string"}}}""");
+
         // Collection types
         yield return new TestData<int[]>([1, 2, 3]);
         yield return new TestData<List<bool>>([false, true, false]);
@@ -326,6 +330,14 @@ internal static partial class TestTypes
         public StringEnum? NullableStringEnumUsingIntConverter { get; set; }
     }
 
+    public class PocoWithExtensionDataProperty
+    {
+        public string? Name { get; set; }
+
+        [JsonExtensionData]
+        public Dictionary<string, object>? ExtensionData { get; set; }
+    }
+
     public readonly struct StructDictionary<TKey, TValue>(IEnumerable<KeyValuePair<TKey, TValue>> values)
         : IReadOnlyDictionary<TKey, TValue>
         where TKey : notnull
@@ -410,6 +422,7 @@ internal static partial class TestTypes
     [JsonSerializable(typeof(PocoWithCustomConverter))]
     [JsonSerializable(typeof(PocoWithCustomPropertyConverter))]
     [JsonSerializable(typeof(PocoWithEnums))]
+    [JsonSerializable(typeof(PocoWithExtensionDataProperty))]
     // Collection types
     [JsonSerializable(typeof(int[]))]
     [JsonSerializable(typeof(List<bool>))]
