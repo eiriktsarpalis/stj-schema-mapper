@@ -1,12 +1,12 @@
 ﻿using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics;
-using System.Reflection;
-using System.Text.Json.Nodes;
-using System.Text.Json.Serialization.Metadata;
-using System.Text.Json.Serialization;
-using System.Text.Json;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 
 namespace JsonSchemaMapper;
 
