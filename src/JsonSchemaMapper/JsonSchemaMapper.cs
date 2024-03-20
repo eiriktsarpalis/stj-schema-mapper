@@ -157,11 +157,11 @@ public static class JsonSchemaMapper
                     if (effectiveNumberHandling is JsonNumberHandling numberHandling &&
                         schemaType is JsonSchemaType.Integer or JsonSchemaType.Number)
                     {
-                        if (numberHandling.HasFlag(JsonNumberHandling.AllowReadingFromString))
+                        if ((numberHandling & (JsonNumberHandling.AllowReadingFromString | JsonNumberHandling.WriteAsString)) != 0)
                         {
                             schemaType |= JsonSchemaType.String;
                         }
-                        else if (numberHandling.HasFlag(JsonNumberHandling.AllowNamedFloatingPointLiterals))
+                        else if (numberHandling is JsonNumberHandling.AllowNamedFloatingPointLiterals)
                         {
                             anyOfTypes = 
                                 [
@@ -258,6 +258,13 @@ public static class JsonSchemaMapper
             default:
                 Debug.Fail("Unreachable code");
                 break;
+        }
+
+        if (state.Configuration.AllowNullForReferenceTypes && schemaType != JsonSchemaType.Any && !typeInfo.Type.IsValueType)
+        {
+            // TODO read nullability information from the contract
+            // cf. https://github.com/dotnet/runtime/issues/1256
+            schemaType |= JsonSchemaType.Null;
         }
 
         return CreateSchemaDocument(
@@ -407,13 +414,13 @@ public static class JsonSchemaMapper
     private enum JsonSchemaType
     {
         Any = 0, // No type declared on the schema
-        Null = 1,
-        Boolean = 2,
-        String = 4,
-        Integer = 8,
-        Number = 16,
-        Array = 32,
-        Object = 64,
+        String = 1,
+        Integer = 2,
+        Number = 4,
+        Boolean = 8,
+        Array = 16,
+        Object = 32,
+        Null = 64,
     }
 
     private static JsonNode? MapSchemaType(JsonSchemaType schemaType)

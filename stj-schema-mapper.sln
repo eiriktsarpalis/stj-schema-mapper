@@ -2,23 +2,24 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.27428.2002
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JsonSchemaMapper", "src\JsonSchemaMapper\JsonSchemaMapper.csproj", "{6D6842A7-E66B-467C-B520-B6672F8946A7}" 
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JsonSchemaMapper", "src\JsonSchemaMapper\JsonSchemaMapper.csproj", "{43D06CA4-AA79-47DF-8ACE-5FDF69A88D86}" 
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JsonSchemaMapper.Tests", "tests\JsonSchemaMapper.Tests\JsonSchemaMapper.Tests.csproj", "{4BD820FB-A493-4A88-BD66-2BD64FA691FA}" 
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JsonSchemaMapper.Tests", "tests\JsonSchemaMapper.Tests\JsonSchemaMapper.Tests.csproj", "{D8F5C3E6-A93B-4965-96CE-09F7E42A9AD4}" 
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{4DC94E04-05C1-4546-9E3E-7BCE75E151CE}" 
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{2916F187-2350-43CB-87E4-DB954F63BE46}" 
 	ProjectSection(SolutionItems) = preProject
 		.gitignore = .gitignore
 		Directory.Build.props = Directory.Build.props
 		Directory.Packages.props = Directory.Packages.props
 		LICENSE = LICENSE
+		Makefile = Makefile
 		README.md = README.md
 		stj-schema-mapper.sln = stj-schema-mapper.sln
 	EndProjectSection
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{A1260727-D22C-4406-920D-D8CB2F7A3B91}" 
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{6121850E-1263-42A3-84A2-364D9E564656}" 
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{7987D53A-DB79-4C66-A97E-1A539EF2C5E2}" 
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{F77E504F-8A4B-4E04-BAF8-3AD60496096A}" 
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -26,23 +27,23 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{6D6842A7-E66B-467C-B520-B6672F8946A7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{6D6842A7-E66B-467C-B520-B6672F8946A7}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{6D6842A7-E66B-467C-B520-B6672F8946A7}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{6D6842A7-E66B-467C-B520-B6672F8946A7}.Release|Any CPU.Build.0 = Release|Any CPU
-		{4BD820FB-A493-4A88-BD66-2BD64FA691FA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{4BD820FB-A493-4A88-BD66-2BD64FA691FA}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{4BD820FB-A493-4A88-BD66-2BD64FA691FA}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{4BD820FB-A493-4A88-BD66-2BD64FA691FA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{43D06CA4-AA79-47DF-8ACE-5FDF69A88D86}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{43D06CA4-AA79-47DF-8ACE-5FDF69A88D86}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{43D06CA4-AA79-47DF-8ACE-5FDF69A88D86}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{43D06CA4-AA79-47DF-8ACE-5FDF69A88D86}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D8F5C3E6-A93B-4965-96CE-09F7E42A9AD4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D8F5C3E6-A93B-4965-96CE-09F7E42A9AD4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D8F5C3E6-A93B-4965-96CE-09F7E42A9AD4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D8F5C3E6-A93B-4965-96CE-09F7E42A9AD4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{6D6842A7-E66B-467C-B520-B6672F8946A7} = {A1260727-D22C-4406-920D-D8CB2F7A3B91}
-		{4BD820FB-A493-4A88-BD66-2BD64FA691FA} = {7987D53A-DB79-4C66-A97E-1A539EF2C5E2}
+		{43D06CA4-AA79-47DF-8ACE-5FDF69A88D86} = {6121850E-1263-42A3-84A2-364D9E564656}
+		{D8F5C3E6-A93B-4965-96CE-09F7E42A9AD4} = {F77E504F-8A4B-4E04-BAF8-3AD60496096A}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {F0F44C92-E7A7-4514-A8BF-FE5D07760BD6}
+		SolutionGuid = {B01BD792-D310-4A40-A65A-9B4F35B30A89}
 	EndGlobalSection
 EndGlobal

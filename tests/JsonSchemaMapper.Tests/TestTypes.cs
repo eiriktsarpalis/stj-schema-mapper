@@ -53,15 +53,15 @@ internal static partial class TestTypes
         yield return new TestData<JsonNode>(JsonNode.Parse("""[{ "x" : 42 }]"""));
         yield return new TestData<JsonValue>((JsonValue)42);
         yield return new TestData<JsonObject>(new() { ["x"] = 42 });
-        yield return new TestData<JsonArray>(new() { 1, 2, 3 });
+        yield return new TestData<JsonArray>([1, 2, 3]);
 
         // Enum types
         yield return new TestData<IntEnum>(IntEnum.A, ExpectedJsonSchema: """{"type":"integer"}""");
         yield return new TestData<StringEnum>(StringEnum.A);
-        yield return new TestData<FlagsStringEnum>(FlagsStringEnum.A, ExpectedJsonSchema: """{"type":["string"]}""");
+        yield return new TestData<FlagsStringEnum>(FlagsStringEnum.A, ExpectedJsonSchema: """{"type":"string"}""");
 
-        // Nullable<T> types -- not handled by JsonSchemaGenerator
-        yield return new TestData<bool?>(null, ExpectedJsonSchema: """{"type":["boolean","null"]}"""); // TODO move null first
+        // Nullable<T> types
+        yield return new TestData<bool?>(null, ExpectedJsonSchema: """{"type":["boolean","null"]}""");
         yield return new TestData<int?>(null, ExpectedJsonSchema: """{"type":["integer","null"]}""");
         yield return new TestData<double?>(null, ExpectedJsonSchema: """{"type":["number","null"]}""");
         yield return new TestData<Guid?>(null, ExpectedJsonSchema: """{"type":["string","null"],"format":"uuid"}""");
@@ -98,8 +98,29 @@ internal static partial class TestTypes
                 }
                 """);
 
-        yield return new TestData<PocoWithCustomNumberHandlingOnProperties>(new() { X = 1, Y = 2, Z = 3 });
-        yield return new TestData<PocoWithRecursiveMembers>(new() { Value = 1, Next = new() { Value = 2, Next = new() { Value = 3 } } });
+        yield return new TestData<PocoWithCustomNumberHandlingOnProperties>(
+            Value: new() { X = 1, Y = 2, Z = 3 },
+            ExpectedJsonSchema: """
+            {
+              "type": "object",
+              "properties": {
+                "X": { "type": ["string", "integer"] },
+                "Y": {
+                  "anyOf": [
+                    { "type": "integer" },
+                    { "enum": ["NaN", "Infinity", "-Infinity"]}
+                  ]
+                },
+                "Z": { "type": ["string", "integer"] }
+              }
+            }
+            """);
+
+        yield return new TestData<PocoWithRecursiveMembers>(
+            Value: new() { Value = 1, Next = new() { Value = 2, Next = new() { Value = 3 } } },
+            ExpectedJsonSchema: """{"type":["object","null"],"properties":{"Value":{"type":"integer"},"Next":{"$ref":"#"}}}""",
+            Configuration: new() { AllowNullForReferenceTypes = true });
+
         yield return new TestData<PocoWithDescription>(
             Value: new() { X = 42 },
             ExpectedJsonSchema: """
@@ -156,6 +177,10 @@ internal static partial class TestTypes
 
         // Dictionary types
         yield return new TestData<Dictionary<string, int>>(new() { ["one"] = 1, ["two"] = 2, ["three"] = 3 });
+        yield return new TestData<StructDictionary<string, int>>(
+            Value: new([new("one", 1), new("two", 2), new("three", 3)]),
+            ExpectedJsonSchema: """{"type":"object","additionalProperties":{"type": "integer"}}""");
+
         yield return new TestData<SortedDictionary<int, string>>(
             Value: new() { [1] = "one", [2] = "two", [3] = "three" }, 
             ExpectedJsonSchema: """{"type":"object","additionalProperties":{"type": "string"}}""");
@@ -236,7 +261,7 @@ internal static partial class TestTypes
         [JsonNumberHandling(JsonNumberHandling.AllowNamedFloatingPointLiterals)]
         public int Y { get; set; }
 
-        [JsonNumberHandling(JsonNumberHandling.WriteAsString)] // No effect on JsonShema
+        [JsonNumberHandling(JsonNumberHandling.WriteAsString)]
         public int Z { get; set; }
     }
 
@@ -299,6 +324,25 @@ internal static partial class TestTypes
 
         [JsonConverter(typeof(JsonNumberEnumConverter<StringEnum>))]
         public StringEnum? NullableStringEnumUsingIntConverter { get; set; }
+    }
+
+    public readonly struct StructDictionary<TKey, TValue>(IEnumerable<KeyValuePair<TKey, TValue>> values)
+        : IReadOnlyDictionary<TKey, TValue>
+        where TKey : notnull
+    {
+        private readonly IReadOnlyDictionary<TKey, TValue> _dictionary = values.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+        public TValue this[TKey key] => _dictionary[key];
+        public IEnumerable<TKey> Keys => _dictionary.Keys;
+        public IEnumerable<TValue> Values => _dictionary.Values;
+        public int Count => _dictionary.Count;
+        public bool ContainsKey(TKey key) => _dictionary.ContainsKey(key);
+        public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator() => _dictionary.GetEnumerator();
+#if NETCOREAPP
+        public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value) => _dictionary.TryGetValue(key, out value);
+#else
+        public bool TryGetValue(TKey key, out TValue value) => _dictionary.TryGetValue(key, out value);
+#endif
+        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable)_dictionary).GetEnumerator();
     }
 
     [JsonSerializable(typeof(object))]
@@ -382,12 +426,14 @@ internal static partial class TestTypes
     [JsonSerializable(typeof(Dictionary<string, SimplePoco>))]
     [JsonSerializable(typeof(Dictionary<string, object>))]
     [JsonSerializable(typeof(Hashtable))]
+    [JsonSerializable(typeof(StructDictionary<string, int>))]
     public partial class TestTypesContext : JsonSerializerContext;
 }
 
 public record TestData<T>(
     T? Value, 
     [StringSyntax("Json")] string? ExpectedJsonSchema = null,
+    JsonSchemaMapperConfiguration? Configuration = null,
     bool IsSourceGenSupported = true) : ITestData
 {
     public Type Type => typeof(T);
@@ -407,4 +453,6 @@ public interface ITestData
     string? ExpectedJsonSchema { get; }
 
     bool IsSourceGenSupported { get; }
+
+    JsonSchemaMapperConfiguration? Configuration { get; }
 }

@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Collections.Immutable;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
@@ -20,7 +21,7 @@ public abstract class JsonSchemaMapperTests
             return;
         }
 
-        JsonObject schema = Options.GetJsonSchema(testData.Type);
+        JsonObject schema = Options.GetJsonSchema(testData.Type, testData.Configuration);
         Helpers.AssertValidJsonSchema(testData.Type, testData.ExpectedJsonSchema, schema);
     }
 
@@ -28,7 +29,7 @@ public abstract class JsonSchemaMapperTests
     [MemberData(nameof(TestTypes.GetTestData), MemberType = typeof(TestTypes))]
     public void TestTypes_SerializedValueMatchesGeneratedSchema(ITestData testData)
     {
-        JsonObject schema = Options.GetJsonSchema(testData.Type);
+        JsonObject schema = Options.GetJsonSchema(testData.Type, testData.Configuration);
         JsonNode? instance = JsonSerializer.SerializeToNode(testData.Value, testData.Type, Options);
         Helpers.AssertDocumentMatchesSchema(schema, instance);
     }
@@ -96,6 +97,44 @@ public abstract class JsonSchemaMapperTests
         {
             Assert.Equal("The type description", (string)schema["description"]!);
         }
+    }
+
+    [Theory]
+    [InlineData(typeof(string), "string")]
+    [InlineData(typeof(int[]), "array")]
+    [InlineData(typeof(Dictionary<string, int>), "object")]
+    [InlineData(typeof(TestTypes.SimplePoco), "object")]
+    public void AllowNullForReferenceTypes_EnablesReferenceTypeNullability(Type referenceType, string expectedType)
+    {
+        Assert.True(!referenceType.IsValueType);
+        var config = new JsonSchemaMapperConfiguration { AllowNullForReferenceTypes = true };
+        JsonObject schema = Options.GetJsonSchema(referenceType, config);
+        JsonArray arr = Assert.IsType<JsonArray>(schema["type"]);
+        Assert.Equal([expectedType, "null"], arr.Select(e => (string)e!));
+    }
+
+    [Theory]
+    [InlineData(typeof(int), "integer")]
+    [InlineData(typeof(double), "number")]
+    [InlineData(typeof(bool), "boolean")]
+    [InlineData(typeof(ImmutableArray<int>), "array")]
+    [InlineData(typeof(TestTypes.StructDictionary<string, int>), "object")]
+    [InlineData(typeof(TestTypes.SimpleRecordStruct), "object")]
+    public void AllowNullForReferenceTypes_DoesNotImpactNonReferenceTypes(Type referenceType, string expectedType)
+    {
+        Assert.True(referenceType.IsValueType);
+        var config = new JsonSchemaMapperConfiguration { AllowNullForReferenceTypes = true };
+        JsonObject schema = Options.GetJsonSchema(referenceType, config);
+        JsonValue value = Assert.IsAssignableFrom<JsonValue>(schema["type"]);
+        Assert.Equal(expectedType, (string)value!);
+    }
+
+    [Fact]
+    public void AllowNullForReferenceTypes_DoesNotImpactObject()
+    {
+        var config = new JsonSchemaMapperConfiguration { AllowNullForReferenceTypes = true };
+        JsonObject schema = Options.GetJsonSchema(typeof(object), config);
+        Assert.DoesNotContain("type", schema);
     }
 }
 

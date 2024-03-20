@@ -16,7 +16,7 @@ JsonObject schema = options.GetJsonSchema(typeof(Person));
 //   "properties": { 
 //     "Name": { "type": "string" },
 //     "Age": { "type": "integer" },
-//     "Address": { "type" : "string" }
+//     "Address": { "type": "string" }
 //   }  
 // }
 
@@ -34,7 +34,7 @@ JsonObject schema = PersonContext.Default.Person.ToJsonSchema(config);
 //   "properties": { 
 //     "Name": { "type": "string" },
 //     "Age": { "type": "integer" },
-//     "Address": { "type" : "string" }
+//     "Address": { "type": "string" }
 //   }  
 // }
 

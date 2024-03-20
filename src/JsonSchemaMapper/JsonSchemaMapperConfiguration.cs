@@ -39,6 +39,17 @@ public class JsonSchemaMapperConfiguration
     public bool ResolveDescriptionAttributes { get; init; } = true;
 
     /// <summary>
+    /// Determines whether nullability should be included in the schema for reference types.
+    /// </summary>
+    /// <remarks>
+    /// Defaults to false. Currently STJ doesn't recognize non-nullable reference types 
+    /// (https://github.com/dotnet/runtime/issues/1256) so the serializer will always treat 
+    /// them as nullable. Enabling this option improves accuracy of the generated schema 
+    /// with respect to the actual serialization behavior but can result in more noise.
+    /// </remarks>
+    public bool AllowNullForReferenceTypes { get; init; }
+
+    /// <summary>
     /// Determines the maximum permitted depth when traversing the generated type graph.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when the value is less than 0.</exception>

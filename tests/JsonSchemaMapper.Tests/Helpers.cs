@@ -1,5 +1,4 @@
-﻿using Json.More;
-using Json.Schema;
+﻿using Json.Schema;
 using Json.Schema.Generation;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -13,14 +12,13 @@ internal static partial class Helpers
     public static void AssertValidJsonSchema(Type type, string? expectedJsonSchema, JsonObject actualJsonSchema)
     {
         // If an expected schema is provided, use that. Otherwise, generate a schema from the type.
-        JsonSchema expectedJsonSchemaNet = expectedJsonSchema != null
-            ? ParseSchemaCore(expectedJsonSchema)
-            : new JsonSchemaBuilder().FromType(type);
+        JsonNode? expectedJsonSchemaNode = expectedJsonSchema != null
+            ? JsonNode.Parse(expectedJsonSchema)
+            : JsonSerializer.SerializeToNode(new JsonSchemaBuilder().FromType(type), Context.Default.JsonSchema);
 
-        // Trim the $schema property from actual schema since it's not included by the schema builder.
+        // Trim the $schema property from actual schema since it's not included by the generator.
         actualJsonSchema.Remove("$schema");
 
-        JsonNode? expectedJsonSchemaNode = JsonSerializer.SerializeToNode(expectedJsonSchemaNet, Context.Default.JsonSchema);
         if (!JsonNode.DeepEquals(expectedJsonSchemaNode, actualJsonSchema))
         {
             throw new XunitException($"""
@@ -36,15 +34,22 @@ internal static partial class Helpers
     public static void AssertDocumentMatchesSchema(JsonObject schema, JsonNode? instance)
     {
         JsonSchema jsonSchema = ParseSchemaCore(schema);
-        EvaluationResults results = jsonSchema.Evaluate(instance);
-        if (results.HasErrors)
+        EvaluationOptions options = new() { OutputFormat = OutputFormat.List };
+        EvaluationResults results = jsonSchema.Evaluate(instance, options);
+        if (!results.IsValid)
         {
+            IEnumerable<string> errors = results.Details
+                .Where(d => d.HasErrors)
+                .SelectMany(d => d.Errors!.Select(error => $"Path:${d.InstanceLocation} {error.Key}:{error.Value}"));
+
             throw new XunitException($"""
                 Instance JSON document does not match the specified schema.
                 Schema:
                 {FormatJson(schema)}
                 Instance:
                 {FormatJson(instance)}
+                Errors:
+                {string.Join(Environment.NewLine, errors)}
                 """);
         }
     }
