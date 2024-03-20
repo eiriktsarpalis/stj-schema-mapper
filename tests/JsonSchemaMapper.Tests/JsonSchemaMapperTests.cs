@@ -26,7 +26,7 @@ public abstract class JsonSchemaMapperTests
     }
 
     [Theory]
-    [MemberData(nameof(TestTypes.GetTestData), MemberType = typeof(TestTypes))]
+    [MemberData(nameof(TestTypes.GetTestDataUsingAllValues), MemberType = typeof(TestTypes))]
     public void TestTypes_SerializedValueMatchesGeneratedSchema(ITestData testData)
     {
         JsonObject schema = Options.GetJsonSchema(testData.Type, testData.Configuration);

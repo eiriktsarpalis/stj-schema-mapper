@@ -10,12 +10,21 @@ namespace JsonSchemaMapper.Tests;
 
 internal static partial class TestTypes
 {
-    public static IEnumerable<object[]> GetTestData() => GetTestDataCore().Select(x => new object[] { x });
+    public static IEnumerable<object[]> GetTestData() => GetTestDataCore().Select(t => new object[] { t });
+
+    public static IEnumerable<object[]> GetTestDataUsingAllValues() =>
+        GetTestDataCore()
+        .SelectMany(t => t.GetTestDataForAllValues())
+        .Select(t => new object[] { t });
 
     public static IEnumerable<ITestData> GetTestDataCore()
     {
         // Primitives and built-in types
-        yield return new TestData<object>(Value: new(), ExpectedJsonSchema: "{}");
+        yield return new TestData<object>(
+            Value: new(), 
+            AdditionalValues: [null, 42, false, 3.14, 3.14M, new int[] { 1, 2, 3 }, new SimpleRecord(1, "str", false, 3.14)],
+            ExpectedJsonSchema: "{}");
+
         yield return new TestData<bool>(true);
         yield return new TestData<byte>(42);
         yield return new TestData<ushort>(42);
@@ -61,13 +70,27 @@ internal static partial class TestTypes
         yield return new TestData<FlagsStringEnum>(FlagsStringEnum.A, ExpectedJsonSchema: """{"type":"string"}""");
 
         // Nullable<T> types
-        yield return new TestData<bool?>(null, ExpectedJsonSchema: """{"type":["boolean","null"]}""");
-        yield return new TestData<int?>(null, ExpectedJsonSchema: """{"type":["integer","null"]}""");
-        yield return new TestData<double?>(null, ExpectedJsonSchema: """{"type":["number","null"]}""");
-        yield return new TestData<Guid?>(null, ExpectedJsonSchema: """{"type":["string","null"],"format":"uuid"}""");
-        yield return new TestData<JsonElement?>(null, ExpectedJsonSchema: "{}");
-        yield return new TestData<IntEnum?>(null, ExpectedJsonSchema: """{"type":["integer","null"]}""");
-        yield return new TestData<StringEnum?>(null, ExpectedJsonSchema: """{"enum":["A","B","C",null]}""");
+        yield return new TestData<bool?>(true, AdditionalValues: [null], ExpectedJsonSchema: """{"type":["boolean","null"]}""");
+        yield return new TestData<int?>(42, AdditionalValues: [null], ExpectedJsonSchema: """{"type":["integer","null"]}""");
+        yield return new TestData<double?>(3.14, AdditionalValues: [null], ExpectedJsonSchema: """{"type":["number","null"]}""");
+        yield return new TestData<Guid?>(Guid.Empty, AdditionalValues: [null], ExpectedJsonSchema: """{"type":["string","null"],"format":"uuid"}""");
+        yield return new TestData<JsonElement?>(JsonDocument.Parse("{}").RootElement, AdditionalValues: [null], ExpectedJsonSchema: "{}");
+        yield return new TestData<IntEnum?>(IntEnum.A, AdditionalValues: [null], ExpectedJsonSchema: """{"type":["integer","null"]}""");
+        yield return new TestData<StringEnum?>(StringEnum.A, AdditionalValues: [null], ExpectedJsonSchema: """{"enum":["A","B","C",null]}""");
+        yield return new TestData<SimpleRecordStruct?>(
+            new(1, "two", true, 3.14), 
+            AdditionalValues: [null],
+            ExpectedJsonSchema: """
+                {
+                    "type":["object","null"],
+                    "properties": {
+                        "X": {"type":"integer"},
+                        "Y": {"type":"string"},
+                        "Z": {"type":"boolean"},
+                        "W": {"type":"number"}
+                    }
+                }
+                """);
 
         // User-defined POCOs
         yield return new TestData<SimplePoco>(new() { X = "string", Y = 42, Z = 3.14, W = true });
@@ -100,6 +123,11 @@ internal static partial class TestTypes
 
         yield return new TestData<PocoWithCustomNumberHandlingOnProperties>(
             Value: new() { X = 1, Y = 2, Z = 3 },
+            AdditionalValues: [ 
+                new() { X = 1, Y = double.NaN, Z = 3 },
+                new() { X = 1, Y = double.PositiveInfinity, Z = 3 },
+                new() { X = 1, Y = double.NegativeInfinity, Z = 3 },
+            ],
             ExpectedJsonSchema: """
             {
               "type": "object",
@@ -107,7 +135,7 @@ internal static partial class TestTypes
                 "X": { "type": ["string", "integer"] },
                 "Y": {
                   "anyOf": [
-                    { "type": "integer" },
+                    { "type": "number" },
                     { "enum": ["NaN", "Infinity", "-Infinity"]}
                   ]
                 },
@@ -118,6 +146,7 @@ internal static partial class TestTypes
 
         yield return new TestData<PocoWithRecursiveMembers>(
             Value: new() { Value = 1, Next = new() { Value = 2, Next = new() { Value = 3 } } },
+            AdditionalValues: [null, new() { Value = 1, Next = null }],
             ExpectedJsonSchema: """{"type":["object","null"],"properties":{"Value":{"type":"integer"},"Next":{"$ref":"#"}}}""",
             Configuration: new() { AllowNullForReferenceTypes = true });
 
@@ -149,6 +178,17 @@ internal static partial class TestTypes
                 StringEnumUsingIntConverter = StringEnum.A,
                 NullableStringEnumUsingIntConverter = StringEnum.B
             },
+            AdditionalValues: [
+                new()
+                {
+                    IntEnum = (IntEnum)int.MaxValue,
+                    StringEnum = StringEnum.A,
+                    IntEnumUsingStringConverter = IntEnum.A,
+                    NullableIntEnumUsingStringConverter = null,
+                    StringEnumUsingIntConverter = (StringEnum)int.MaxValue,
+                    NullableStringEnumUsingIntConverter = null
+                },
+            ],
             ExpectedJsonSchema: """
                 {
                   "type": "object",
@@ -162,6 +202,65 @@ internal static partial class TestTypes
                   }
                 }
                 """);
+
+        var recordStruct = new SimpleRecordStruct(42, "str", true, 3.14);
+        yield return new TestData<PocoWithStructFollowedByNullableStruct>(
+            Value: new() { Struct = recordStruct, NullableStruct = null },
+            AdditionalValues: [new() { Struct = recordStruct, NullableStruct = recordStruct }],
+            ExpectedJsonSchema: """
+            {
+                "type": "object",
+                "properties": {
+                    "Struct": {
+                        "type": "object",
+                        "properties": {
+                            "X": {"type":"integer"},
+                            "Y": {"type":"string"},
+                            "Z": {"type":"boolean"},
+                            "W": {"type":"number"}
+                        }
+                    },
+                    "NullableStruct": {
+                        "type": ["object","null"],
+                        "properties": {
+                            "X": {"type":"integer"},
+                            "Y": {"type":"string"},
+                            "Z": {"type":"boolean"},
+                            "W": {"type":"number"}
+                        }
+                    }
+                }
+            }
+            """);
+
+        yield return new TestData<PocoWithNullableStructFollowedByStruct>(
+            Value: new() { NullableStruct = null, Struct = recordStruct },
+            AdditionalValues: [new() { NullableStruct = recordStruct, Struct = recordStruct }],
+            ExpectedJsonSchema: """
+            {
+                "type": "object",
+                "properties": {
+                    "NullableStruct": {
+                        "type": ["object","null"],
+                        "properties": {
+                            "X": {"type":"integer"},
+                            "Y": {"type":"string"},
+                            "Z": {"type":"boolean"},
+                            "W": {"type":"number"}
+                        }
+                    },
+                    "Struct": {
+                        "type": "object",
+                        "properties": {
+                            "X": {"type":"integer"},
+                            "Y": {"type":"string"},
+                            "Z": {"type":"boolean"},
+                            "W": {"type":"number"}
+                        }
+                    }
+                }
+            }
+            """);
 
         yield return new TestData<PocoWithExtensionDataProperty>(
             Value: new() { Name = "name", ExtensionData = new() { ["x"] = 42 } },
@@ -179,6 +278,132 @@ internal static partial class TestTypes
                     "additionalProperties": false
                 }
                 """);
+
+        yield return new TestData<PocoWithPolymorphism>(
+            Value: new PocoWithPolymorphism.DerivedPocoStringDiscriminator { BaseValue = 42, DerivedValue = "derived" },
+            AdditionalValues: [
+                new PocoWithPolymorphism.DerivedPocoNoDiscriminator { BaseValue = 42, DerivedValue = "derived" },
+                new PocoWithPolymorphism.DerivedPocoIntDiscriminator { BaseValue = 42, DerivedValue = "derived" },
+                new PocoWithPolymorphism.DerivedCollection { BaseValue = 42 },
+                new PocoWithPolymorphism.DerivedDictionary { BaseValue = 42 },
+            ],
+
+            ExpectedJsonSchema: """
+                {
+                    "anyOf": [
+                        {
+                            "type": "object",
+                            "properties": {
+                                "BaseValue": {"type":"integer"},
+                                "DerivedValue": {"type":"string"}
+                            }
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "$type": {"const":"derivedPoco"},
+                                "BaseValue": {"type":"integer"},
+                                "DerivedValue": {"type":"string"}
+                            },
+                            "required": ["$type"]
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "$type": {"const":42},
+                                "BaseValue": {"type":"integer"},
+                                "DerivedValue": {"type":"string"}
+                            },
+                            "required": ["$type"]
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "$type": {"const":"derivedCollection"},
+                                "$values": {
+                                    "type": "array",
+                                    "items": {"type":"integer"}
+                                }
+                            },
+                            "required": ["$type"]
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "$type": {"const":"derivedDictionary"}
+                            },
+                            "additionalProperties":{"type": "integer"},
+                            "required": ["$type"]
+                        }
+                    ]
+                }
+                """);
+
+        yield return new TestData<PocoCombiningPolymorphicTypeAndDerivedTypes>(
+            Value: new(),
+            ExpectedJsonSchema: """
+            {
+                "type": "object",
+                "properties": {
+                    "PolymorphicValue": {
+                        "anyOf": [
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "BaseValue": {"type":"integer"},
+                                    "DerivedValue": {"type":"string"}
+                                }
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "$type": {"const":"derivedPoco"},
+                                    "BaseValue": {"type":"integer"},
+                                    "DerivedValue": {"type":"string"}
+                                },
+                                "required": ["$type"]
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "$type": {"const":42},
+                                    "BaseValue": {"type":"integer"},
+                                    "DerivedValue": {"type":"string"}
+                                },
+                                "required": ["$type"]
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "$type": {"const":"derivedCollection"},
+                                    "$values": {
+                                        "type": "array",
+                                        "items": {"type":"integer"}
+                                    }
+                                },
+                                "required": ["$type"]
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "$type": {"const":"derivedDictionary"}
+                                },
+                                "additionalProperties":{"type": "integer"},
+                                "required": ["$type"]
+                            }
+                        ]
+                    },
+                    "DerivedValue1": { "$ref": "#/properties/PolymorphicValue/anyOf/0" },
+                    "DerivedValue2": {
+                        "type": "object",
+                        "properties": {
+                            "BaseValue": {"type":"integer"},
+                            "DerivedValue": {"type":"string"}
+                        }
+                    }
+                }
+            }
+            """);
 
         // Collection types
         yield return new TestData<int[]>([1, 2, 3]);
@@ -276,7 +501,7 @@ internal static partial class TestTypes
         public int X { get; set; }
 
         [JsonNumberHandling(JsonNumberHandling.AllowNamedFloatingPointLiterals)]
-        public int Y { get; set; }
+        public double Y { get; set; }
 
         [JsonNumberHandling(JsonNumberHandling.WriteAsString)]
         public int Z { get; set; }
@@ -343,6 +568,18 @@ internal static partial class TestTypes
         public StringEnum? NullableStringEnumUsingIntConverter { get; set; }
     }
 
+    public class PocoWithStructFollowedByNullableStruct
+    {
+        public SimpleRecordStruct? NullableStruct { get; set; }
+        public SimpleRecordStruct Struct { get; set; }
+    }
+
+    public class PocoWithNullableStructFollowedByStruct
+    {
+        public SimpleRecordStruct? NullableStruct { get; set; }
+        public SimpleRecordStruct Struct { get; set; }
+    }
+
     public class PocoWithExtensionDataProperty
     {
         public string? Name { get; set; }
@@ -356,6 +593,56 @@ internal static partial class TestTypes
     {
         public string? Name { get; set; }
         public int Age { get; set; }
+    }
+
+    [JsonDerivedType(typeof(DerivedPocoNoDiscriminator))]
+    [JsonDerivedType(typeof(DerivedPocoStringDiscriminator), "derivedPoco")]
+    [JsonDerivedType(typeof(DerivedPocoIntDiscriminator), 42)]
+    [JsonDerivedType(typeof(DerivedCollection), "derivedCollection")]
+    [JsonDerivedType(typeof(DerivedDictionary), "derivedDictionary")]
+    public abstract class PocoWithPolymorphism
+    {
+        public int BaseValue { get; set; }
+
+        public class DerivedPocoNoDiscriminator : PocoWithPolymorphism
+        {
+            public string? DerivedValue { get; set; }
+        }
+
+        public class DerivedPocoStringDiscriminator : PocoWithPolymorphism
+        {
+            public string? DerivedValue { get; set; }
+        }
+
+        public class DerivedPocoIntDiscriminator : PocoWithPolymorphism
+        {
+            public string? DerivedValue { get; set; }
+        }
+
+        public class DerivedCollection : PocoWithPolymorphism, IEnumerable<int>
+        {
+            public IEnumerator<int> GetEnumerator() => Enumerable.Repeat(BaseValue, 1).GetEnumerator();
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        }
+
+        public class DerivedDictionary : PocoWithPolymorphism, IReadOnlyDictionary<string, int>
+        {
+            public int this[string key] => key == nameof(BaseValue) ? BaseValue : throw new KeyNotFoundException();
+            public IEnumerable<string> Keys => [nameof(BaseValue)];
+            public IEnumerable<int> Values => [BaseValue];
+            public int Count => 1;
+            public bool ContainsKey(string key) => key == nameof(BaseValue);
+            public bool TryGetValue(string key, out int value) => key == nameof(BaseValue) ? (value = BaseValue) == BaseValue : (value = 0) == 0;
+            public IEnumerator<KeyValuePair<string, int>> GetEnumerator() => Enumerable.Repeat(new KeyValuePair<string, int>(nameof(BaseValue), BaseValue), 1).GetEnumerator();
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        }
+    }
+
+    public class PocoCombiningPolymorphicTypeAndDerivedTypes
+    {
+        public PocoWithPolymorphism PolymorphicValue { get; set; } = new PocoWithPolymorphism.DerivedPocoNoDiscriminator { DerivedValue = "derived" };
+        public PocoWithPolymorphism.DerivedPocoNoDiscriminator DerivedValue1 { get; set; } = new() { DerivedValue = "derived" };
+        public PocoWithPolymorphism.DerivedPocoStringDiscriminator DerivedValue2 { get; set; } = new() { DerivedValue = "derived" };
     }
 
     public readonly struct StructDictionary<TKey, TValue>(IEnumerable<KeyValuePair<TKey, TValue>> values)
@@ -428,6 +715,7 @@ internal static partial class TestTypes
     [JsonSerializable(typeof(JsonElement?))]
     [JsonSerializable(typeof(IntEnum?))]
     [JsonSerializable(typeof(StringEnum?))]
+    [JsonSerializable(typeof(SimpleRecordStruct?))]
     // User-defined POCOs
     [JsonSerializable(typeof(SimplePoco))]
     [JsonSerializable(typeof(SimpleRecord))]
@@ -442,8 +730,12 @@ internal static partial class TestTypes
     [JsonSerializable(typeof(PocoWithCustomConverter))]
     [JsonSerializable(typeof(PocoWithCustomPropertyConverter))]
     [JsonSerializable(typeof(PocoWithEnums))]
+    [JsonSerializable(typeof(PocoWithStructFollowedByNullableStruct))]
+    [JsonSerializable(typeof(PocoWithNullableStructFollowedByStruct))]
     [JsonSerializable(typeof(PocoWithExtensionDataProperty))]
     [JsonSerializable(typeof(PocoDisallowingUnmappedMembers))]
+    [JsonSerializable(typeof(PocoWithPolymorphism))]
+    [JsonSerializable(typeof(PocoCombiningPolymorphicTypeAndDerivedTypes))]
     // Collection types
     [JsonSerializable(typeof(int[]))]
     [JsonSerializable(typeof(List<bool>))]
@@ -466,12 +758,26 @@ internal static partial class TestTypes
 
 public record TestData<T>(
     T? Value, 
+    IEnumerable<T?>? AdditionalValues = null,
     [StringSyntax("Json")] string? ExpectedJsonSchema = null,
     JsonSchemaMapperConfiguration? Configuration = null,
     bool IsSourceGenSupported = true) : ITestData
 {
     public Type Type => typeof(T);
     object? ITestData.Value => Value;
+
+    IEnumerable<ITestData> ITestData.GetTestDataForAllValues()
+    {
+        yield return this;
+
+        if (AdditionalValues != null)
+        {
+            foreach (T? value in AdditionalValues)
+            {
+                yield return this with { Value = value, AdditionalValues = null };
+            }
+        }
+    }
 }
 
 public interface ITestData
@@ -489,4 +795,6 @@ public interface ITestData
     bool IsSourceGenSupported { get; }
 
     JsonSchemaMapperConfiguration? Configuration { get; }
+
+    IEnumerable<ITestData> GetTestDataForAllValues();
 }

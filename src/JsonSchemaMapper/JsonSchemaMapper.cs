@@ -6,6 +6,7 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization.Metadata;
 using System.Text.Json.Serialization;
 using System.Text.Json;
+using System.Globalization;
 
 namespace JsonSchemaMapper;
 
@@ -79,62 +80,54 @@ public static class JsonSchemaMapper
         ref GenerationState state,
         string? description = null,
         JsonConverter? customConverter = null,
-        JsonNumberHandling? customNumberHandling = null)
+        JsonNumberHandling? customNumberHandling = null,
+        KeyValuePair<string, JsonNode?>? derivedTypeDiscriminator = null,
+        Type? parentNullableOfT = null)
     {
         Debug.Assert(typeInfo.IsReadOnly);
 
+        Type type = typeInfo.Type;
         JsonConverter effectiveConverter = customConverter ?? typeInfo.Converter;
         JsonNumberHandling? effectiveNumberHandling = customNumberHandling ?? typeInfo.NumberHandling;
+        bool emitsTypeDiscriminator = derivedTypeDiscriminator?.Value is not null;
 
         if (!IsBuiltInConverter(effectiveConverter))
         {
             return new JsonObject(); // We can't make any schema determinations if a custom converter is used
         }
 
-        if (state.TryGetGeneratedSchemaPath(typeInfo.Type, effectiveConverter, out string? typePath))
+        if (!emitsTypeDiscriminator && state.TryGetGeneratedSchemaPath(parentNullableOfT ?? type, effectiveConverter, out string? typePath))
         {
             // Schema for type has already been generated, return a reference to it.
+            // For derived types using discriminators, the schema is generated inline.
             return new JsonObject { [RefPropertyName] = typePath };
         }
 
         if (state.Configuration.ResolveDescriptionAttributes)
         {
-            description ??= typeInfo.Type.GetCustomAttribute<DescriptionAttribute>()?.Description;
+            description ??= type.GetCustomAttribute<DescriptionAttribute>()?.Description;
         }
 
-        if (TryGetNullableElement(typeInfo.Type, out Type? nullableElementType))
+        if (TryGetNullableElement(type, out Type? nullableElementType))
         {
-            // Special handling for Nullable<T>, just return the schema for
-            // the element type with `null` appended to the declared types.
+            // Nullable<T> types must be handled separately
             JsonTypeInfo nullableElementTypeInfo = typeInfo.Options.GetTypeInfo(nullableElementType);
             customConverter = ExtractCustomNullableConverter(customConverter);
-            JsonObject elementSchema = MapJsonSchemaCore(nullableElementTypeInfo, ref state, description, customConverter);
 
-            if (nullableElementType.IsEnum && elementSchema.TryGetPropertyValue(EnumPropertyName, out JsonNode? nullaleElementEnumValues))
-            {
-                // Special case nullable string enum types which require appending the null value to the "enum" property
-                Debug.Assert(nullableElementType.IsEnum && nullaleElementEnumValues is JsonArray);
-                ((JsonArray)nullaleElementEnumValues!).Add(item: null);
-            }
-            else if (elementSchema.TryGetPropertyValue(TypePropertyName, out JsonNode? elementTypeValue))
-            {
-                // Insert null to the "type" property
-                Debug.Assert(elementTypeValue?.GetValueKind() is JsonValueKind.String or JsonValueKind.Array);
-                if (elementTypeValue is JsonArray arr)
-                {
-                    // Type property is already an array, append "null" to it
-                    Debug.Assert(arr.All(elem => (string)elem! != "null"));
-                    arr.Add((JsonNode)"null");
-                }
-                else
-                {
-                    // Convert the type property from string to array
-                    Debug.Assert((string)elementTypeValue! != "null");
-                    elementSchema[TypePropertyName] = new JsonArray { elementTypeValue?.DeepClone(), (JsonNode)"null" };
-                }
-            }
+            return MapJsonSchemaCore(
+                nullableElementTypeInfo,
+                ref state, 
+                description, 
+                customConverter, 
+                parentNullableOfT: type);
+        }
 
-            return elementSchema;
+        if (!emitsTypeDiscriminator && typeInfo.Kind != JsonTypeInfoKind.None)
+        {
+            // For complex types such objects, arrays, and dictionaries register the current path
+            // so that it can be referenced by later occurrences in the type graph. Do not register
+            // types in a polymorphic hierarchy using discriminators as they need to be inlined.
+            state.RegisterTypePath(parentNullableOfT ?? type, effectiveConverter);
         }
 
         JsonSchemaType schemaType = JsonSchemaType.Any;
@@ -146,10 +139,54 @@ public static class JsonSchemaMapper
         JsonArray? enumValues = null;
         JsonArray? anyOfTypes = null;
 
+        if (derivedTypeDiscriminator is null && typeInfo.PolymorphismOptions is { DerivedTypes.Count: > 0 } polyOptions)
+        {
+            // This is the base type of a polymorphic type hierarchy. The schema for this type
+            // will include an "anyOf" property with the schemas for all derived types.
+
+            string typeDiscriminatorKey = polyOptions.TypeDiscriminatorPropertyName;
+            var derivedTypes = polyOptions.DerivedTypes.ToList();
+
+            if (!type.IsAbstract && derivedTypes.Any(derived => derived.DerivedType == type))
+            {
+                // For non-abstract base types that haven't been explicitly configured,
+                // add a trivial schema to the derived types since we should support it.
+                derivedTypes.Add(new JsonDerivedType(type));
+            }
+
+            state.Push(AnyOfPropertyName);
+            anyOfTypes = new JsonArray();
+
+            int i = 0;
+            foreach (JsonDerivedType derivedType in derivedTypes)
+            {
+                Debug.Assert(derivedType.TypeDiscriminator is null or int or string);
+                JsonNode? typeDiscriminatorPropertySchema = derivedType.TypeDiscriminator switch
+                {
+                    null => null,
+                    int intId => new JsonObject { [ConstPropertyName] = (JsonNode)intId },
+                    object stringId => new JsonObject { [ConstPropertyName] = (JsonNode)(string)stringId }
+                };
+
+                JsonTypeInfo derivedTypeInfo = typeInfo.Options.GetTypeInfo(derivedType.DerivedType);
+
+                state.Push(i++.ToString(CultureInfo.InvariantCulture));
+                JsonObject derivedSchema = MapJsonSchemaCore(
+                    derivedTypeInfo, ref state,
+                    derivedTypeDiscriminator: new(typeDiscriminatorKey, typeDiscriminatorPropertySchema));
+                state.Pop();
+
+                anyOfTypes.Add((JsonNode)derivedSchema);
+            }
+
+            state.Pop();
+            goto ConstructSchemaDocument;
+        }
+
         switch (typeInfo.Kind)
         {
             case JsonTypeInfoKind.None:
-                if (s_simpleTypeInfo.TryGetValue(typeInfo.Type, out var simpleTypeInfo))
+                if (s_simpleTypeInfo.TryGetValue(type, out var simpleTypeInfo))
                 {
                     schemaType = simpleTypeInfo.SchemaType;
                     format = simpleTypeInfo.Format;
@@ -163,20 +200,19 @@ public static class JsonSchemaMapper
                         }
                         else if (numberHandling is JsonNumberHandling.AllowNamedFloatingPointLiterals)
                         {
-                            anyOfTypes = 
-                                [
-                                    new JsonObject { [TypePropertyName] = MapSchemaType(schemaType) },
-                                    new JsonObject 
-                                    {
-                                        [EnumPropertyName] = new JsonArray { (JsonNode)"NaN", (JsonNode)"Infinity", (JsonNode)"-Infinity" }
-                                    }
-                                ];
+                            anyOfTypes = [
+                                new JsonObject { [TypePropertyName] = MapSchemaType(schemaType) },
+                                new JsonObject 
+                                {
+                                    [EnumPropertyName] = new JsonArray { (JsonNode)"NaN", (JsonNode)"Infinity", (JsonNode)"-Infinity" }
+                                }
+                            ];
 
                             schemaType = JsonSchemaType.Any; // reset the parent setting
                         }
                     }
                 }
-                else if (typeInfo.Type.IsEnum)
+                else if (type.IsEnum)
                 {
                     if (TryGetStringEnumConverterValues(typeInfo, effectiveConverter, out JsonArray? values))
                     {
@@ -187,6 +223,13 @@ public static class JsonSchemaMapper
                         }
                         else
                         {
+                            if (parentNullableOfT != null)
+                            {
+                                // We're generating the schema for a nullable
+                                // enum type. Append null to the "enum" array.
+                                values.Add(null);
+                            }
+
                             enumValues = values;
                         }
                     }
@@ -203,11 +246,17 @@ public static class JsonSchemaMapper
 
                 if (typeInfo.UnmappedMemberHandling is JsonUnmappedMemberHandling.Disallow)
                 {
-                    // Prevent additional properties from being allowed
+                    // Disallow unspecified properties.
                     additionalProperties = false;
                 }
 
-                state.RegisterTypePath(typeInfo.Type, effectiveConverter);
+                if (emitsTypeDiscriminator)
+                {
+                    Debug.Assert(derivedTypeDiscriminator?.Value is not null);
+                    (properties ??= []).Add(derivedTypeDiscriminator!.Value);
+                    (requiredProperties ??= []).Add((JsonNode)derivedTypeDiscriminator.Value.Key);
+                }
+
                 state.Push(PropertiesPropertyName);
                 foreach (JsonPropertyInfo property in typeInfo.Properties)
                 {
@@ -218,7 +267,7 @@ public static class JsonSchemaMapper
 
                     if (property.IsExtensionData)
                     {
-                        continue; // Extension data properties have no impact on the schema
+                        continue; // Extension data properties don't impact the schema.
                     }
 
                     JsonNumberHandling? propertyNumberHandling = property.NumberHandling ?? effectiveNumberHandling;
@@ -243,14 +292,45 @@ public static class JsonSchemaMapper
                 break;
 
             case JsonTypeInfoKind.Enumerable:
-                schemaType = JsonSchemaType.Array;
                 Type elementType = GetElementType(typeInfo);
                 JsonTypeInfo elementTypeInfo = typeInfo.Options.GetTypeInfo(elementType);
 
-                state.RegisterTypePath(typeInfo.Type, effectiveConverter);
-                state.Push(ItemsPropertyName);
-                arrayItems = MapJsonSchemaCore(elementTypeInfo, ref state);
-                state.Pop();
+                if (emitsTypeDiscriminator)
+                {
+                    Debug.Assert(derivedTypeDiscriminator != null);
+
+                    // Polymorphic enumerable types are represented using a wrapping object:
+                    // { "$type" : "discriminator", "$values" : [element1, element2, ...] }
+                    // Which corresponds to the schema
+                    // { "properties" : { "$type" : { "const" : "discriminator" }, "$values" : { "type" : "array", "items" : { ... } } } }
+
+                    schemaType = JsonSchemaType.Object;
+                    (properties ??= []).Add(derivedTypeDiscriminator!.Value);
+                    (requiredProperties ??= []).Add((JsonNode)derivedTypeDiscriminator.Value.Key);
+
+                    state.Push(PropertiesPropertyName);
+                    state.Push(StjValuesMetadataProperty);
+                    state.Push(ItemsPropertyName);
+                    JsonObject elementSchema = MapJsonSchemaCore(elementTypeInfo, ref state);
+                    state.Pop();
+                    state.Pop();
+                    state.Pop();
+
+                    properties.Add(StjValuesMetadataProperty, 
+                        new JsonObject
+                        {
+                            [TypePropertyName] = MapSchemaType(JsonSchemaType.Array),
+                            [ItemsPropertyName] = elementSchema
+                        });
+                }
+                else
+                {
+                    schemaType = JsonSchemaType.Array;
+
+                    state.Push(ItemsPropertyName);
+                    arrayItems = MapJsonSchemaCore(elementTypeInfo, ref state);
+                    state.Pop();
+                }
 
                 break;
 
@@ -259,7 +339,13 @@ public static class JsonSchemaMapper
                 Type valueType = GetElementType(typeInfo);
                 JsonTypeInfo valueTypeInfo = typeInfo.Options.GetTypeInfo(valueType);
 
-                state.RegisterTypePath(typeInfo.Type, effectiveConverter);
+                if (emitsTypeDiscriminator)
+                {
+                    Debug.Assert(derivedTypeDiscriminator?.Value is not null);
+                    (properties ??= []).Add(derivedTypeDiscriminator!.Value);
+                    (requiredProperties ??= []).Add((JsonNode)derivedTypeDiscriminator.Value.Key);
+                }
+
                 state.Push(AdditionalPropertiesPropertyName);
                 additionalProperties = MapJsonSchemaCore(valueTypeInfo, ref state);
                 state.Pop();
@@ -271,13 +357,16 @@ public static class JsonSchemaMapper
                 break;
         }
 
-        if (state.Configuration.AllowNullForReferenceTypes && schemaType != JsonSchemaType.Any && !typeInfo.Type.IsValueType)
+        if (schemaType != JsonSchemaType.Any &&
+            (type.IsValueType ? parentNullableOfT != null : state.Configuration.AllowNullForReferenceTypes))
         {
-            // TODO read nullability information from the contract
+            // Add null support for nullable types and reference types when configured.
+            // NB STJ does not currently honor non-nullable reference type annotations.
             // cf. https://github.com/dotnet/runtime/issues/1256
             schemaType |= JsonSchemaType.Null;
         }
 
+    ConstructSchemaDocument:
         return CreateSchemaDocument(
             description,
             schemaType,
@@ -425,14 +514,25 @@ public static class JsonSchemaMapper
     private enum JsonSchemaType
     {
         Any = 0, // No type declared on the schema
-        String = 1,
-        Integer = 2,
-        Number = 4,
-        Boolean = 8,
-        Array = 16,
-        Object = 32,
-        Null = 64,
+        Null = 1,
+        Boolean = 2,
+        Integer = 4,
+        Number = 8,
+        String = 16,
+        Array = 32,
+        Object = 64,
     }
+
+    private readonly static JsonSchemaType[] s_schemaValues = [
+        // NB the order of these values influences order of types in the rendered schema
+        JsonSchemaType.String,
+        JsonSchemaType.Integer,
+        JsonSchemaType.Number,
+        JsonSchemaType.Boolean,
+        JsonSchemaType.Array,
+        JsonSchemaType.Object,
+        JsonSchemaType.Null
+    ];
 
     private static JsonNode? MapSchemaType(JsonSchemaType schemaType)
     {
@@ -463,16 +563,6 @@ public static class JsonSchemaMapper
             return array;
         }
     }
-
-    private readonly static JsonSchemaType[] s_schemaValues =
-#if NETCOREAPP
-        Enum.GetValues<JsonSchemaType>()
-#else
-        Enum.GetValues(typeof(JsonSchemaType))
-        .Cast<JsonSchemaType>()
-#endif
-        .Where(value => value != 0)
-        .ToArray();
 
     private static bool IsBuiltInConverter(JsonConverter converter)
         => converter.GetType().Assembly == typeof(JsonConverter).Assembly;
@@ -567,6 +657,8 @@ public static class JsonSchemaMapper
     private const string AdditionalPropertiesPropertyName = "additionalProperties";
     private const string EnumPropertyName = "enum";
     private const string AnyOfPropertyName = "anyOf";
+    private const string ConstPropertyName = "const";
+    private const string StjValuesMetadataProperty = "$values";
 
     private static Dictionary<Type, (JsonSchemaType SchemaType, string? Format)> s_simpleTypeInfo = new()
     {
