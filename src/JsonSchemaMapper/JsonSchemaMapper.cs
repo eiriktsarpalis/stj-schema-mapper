@@ -142,7 +142,7 @@ public static class JsonSchemaMapper
         JsonObject? properties = null;
         JsonArray? requiredProperties = null;
         JsonObject? arrayItems = null;
-        JsonObject? additionalProperties = null;
+        JsonNode? additionalProperties = null;
         JsonArray? enumValues = null;
         JsonArray? anyOfTypes = null;
 
@@ -200,6 +200,12 @@ public static class JsonSchemaMapper
 
             case JsonTypeInfoKind.Object:
                 schemaType = JsonSchemaType.Object;
+
+                if (typeInfo.UnmappedMemberHandling is JsonUnmappedMemberHandling.Disallow)
+                {
+                    // Prevent additional properties from being allowed
+                    additionalProperties = false;
+                }
 
                 state.RegisterTypePath(typeInfo.Type, effectiveConverter);
                 state.Push(PropertiesPropertyName);
@@ -355,7 +361,7 @@ public static class JsonSchemaMapper
         JsonObject? properties,
         JsonArray? requiredProperties,
         JsonObject? arrayItems,
-        JsonObject? additionalProperties,
+        JsonNode? additionalProperties,
         JsonArray? enumValues,
         JsonArray? anyOfSchema,
         ref readonly GenerationState state)

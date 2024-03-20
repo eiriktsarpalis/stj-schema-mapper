@@ -33,9 +33,7 @@ internal static partial class Helpers
 
     public static void AssertDocumentMatchesSchema(JsonObject schema, JsonNode? instance)
     {
-        JsonSchema jsonSchema = ParseSchemaCore(schema);
-        EvaluationOptions options = new() { OutputFormat = OutputFormat.List };
-        EvaluationResults results = jsonSchema.Evaluate(instance, options);
+        EvaluationResults results = EvaluateSchemaCore(schema, instance);
         if (!results.IsValid)
         {
             IEnumerable<string> errors = results.Details
@@ -54,38 +52,27 @@ internal static partial class Helpers
         }
     }
 
-    private static JsonSchema ParseSchemaCore(JsonNode schema)
+    public static void AssertDoesNotMatchSchema(JsonObject schema, JsonNode? instance)
     {
-        try
-        {
-            return JsonSerializer.Deserialize(schema, Context.Default.JsonSchema)!;
-        }
-        catch (Exception ex)
+        EvaluationResults results = EvaluateSchemaCore(schema, instance);
+        if (results.IsValid)
         {
             throw new XunitException($"""
-                Document is not a valid JSON schema:
+                Instance JSON document matches the specified schema.
+                Schema:
                 {FormatJson(schema)}
-                """, ex);
+                Instance:
+                {FormatJson(instance)}
+                """);
         }
     }
 
-    private static JsonSchema ParseSchemaCore(string schema)
+    private static EvaluationResults EvaluateSchemaCore(JsonNode schema, JsonNode? instance)
     {
-        try
-        {
-            return JsonSerializer.Deserialize(schema, Context.Default.JsonSchema)!;
-        }
-        catch (Exception ex)
-        {
-            throw new XunitException($"""
-                Document is not a valid JSON schema:
-                {FormatJson(schema)}
-                """, ex);
-        }
+        JsonSchema jsonSchema = JsonSerializer.Deserialize(schema, Context.Default.JsonSchema)!;
+        EvaluationOptions options = new() { OutputFormat = OutputFormat.List };
+        return jsonSchema.Evaluate(instance, options);
     }
-
-    private static string FormatJson(string json) =>
-        FormatJson(JsonSerializer.Deserialize(json, Context.Default.JsonNode));
 
     private static string FormatJson(JsonNode? node) =>
         JsonSerializer.Serialize(node, Context.Default.JsonNode!);

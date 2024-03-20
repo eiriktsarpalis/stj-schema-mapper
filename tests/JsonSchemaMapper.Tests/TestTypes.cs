@@ -167,6 +167,19 @@ internal static partial class TestTypes
             Value: new() { Name = "name", ExtensionData = new() { ["x"] = 42 } },
             ExpectedJsonSchema: """{"type":"object","properties":{"Name":{"type":"string"}}}""");
 
+        yield return new TestData<PocoDisallowingUnmappedMembers>(
+            Value: new() { Name = "name", Age = 42 },
+            ExpectedJsonSchema: """
+                {
+                    "type": "object",
+                    "properties": {
+                        "Name": {"type":"string"},
+                        "Age": {"type":"integer"}
+                    },
+                    "additionalProperties": false
+                }
+                """);
+
         // Collection types
         yield return new TestData<int[]>([1, 2, 3]);
         yield return new TestData<List<bool>>([false, true, false]);
@@ -338,6 +351,13 @@ internal static partial class TestTypes
         public Dictionary<string, object>? ExtensionData { get; set; }
     }
 
+    [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+    public class PocoDisallowingUnmappedMembers
+    {
+        public string? Name { get; set; }
+        public int Age { get; set; }
+    }
+
     public readonly struct StructDictionary<TKey, TValue>(IEnumerable<KeyValuePair<TKey, TValue>> values)
         : IReadOnlyDictionary<TKey, TValue>
         where TKey : notnull
@@ -423,6 +443,7 @@ internal static partial class TestTypes
     [JsonSerializable(typeof(PocoWithCustomPropertyConverter))]
     [JsonSerializable(typeof(PocoWithEnums))]
     [JsonSerializable(typeof(PocoWithExtensionDataProperty))]
+    [JsonSerializable(typeof(PocoDisallowingUnmappedMembers))]
     // Collection types
     [JsonSerializable(typeof(int[]))]
     [JsonSerializable(typeof(List<bool>))]

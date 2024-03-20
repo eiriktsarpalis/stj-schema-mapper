@@ -136,6 +136,14 @@ public abstract class JsonSchemaMapperTests
         JsonObject schema = Options.GetJsonSchema(typeof(object), config);
         Assert.DoesNotContain("type", schema);
     }
+
+    [Fact]
+    public void TypeWithDisallowUnmappedMembers_AdditionalPropertiesFailValidation()
+    {
+        JsonObject schema = Options.GetJsonSchema(typeof(TestTypes.PocoDisallowingUnmappedMembers));
+        JsonNode? jsonWithUnmappedProperties = JsonNode.Parse("""{ "UnmappedProperty" : {} }""");
+        Helpers.AssertDoesNotMatchSchema(schema, jsonWithUnmappedProperties);
+    }
 }
 
 public sealed class ReflectionJsonSchemaMapperTests : JsonSchemaMapperTests
