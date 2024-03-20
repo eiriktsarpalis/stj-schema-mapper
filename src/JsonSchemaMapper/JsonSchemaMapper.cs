@@ -19,7 +19,12 @@ namespace JsonSchemaMapper;
 /// <summary>
 /// Maps .NET types to JSON schema objects using contract metadata from <see cref="JsonTypeInfo"/> instances.
 /// </summary>
-public static class JsonSchemaMapper
+#if EXPOSE_JSON_SCHEMA_MAPPER
+    public
+#else
+    internal
+#endif
+    static class JsonSchemaMapper
 {
     /// <summary>
     /// The JSON schema draft version used by the generated schemas.

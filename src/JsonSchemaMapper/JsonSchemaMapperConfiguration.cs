@@ -9,7 +9,12 @@ namespace JsonSchemaMapper;
 /// <summary>
 /// Controls the behavior of the <see cref="JsonSchemaMapper"/> class.
 /// </summary>
-public class JsonSchemaMapperConfiguration
+#if EXPOSE_JSON_SCHEMA_MAPPER
+    public
+#else
+    internal
+#endif
+    class JsonSchemaMapperConfiguration
 {
     /// <summary>
     /// Gets the default configuration object used by <see cref="JsonSchemaMapper"/>.
