@@ -15,7 +15,7 @@ using System.Text.Json.Serialization.Metadata;
 namespace JsonSchemaMapper;
 
 #if EXPOSE_JSON_SCHEMA_MAPPER
-public
+    public
 #else
     internal
 #endif
@@ -244,5 +244,115 @@ public
 
         elementType = null;
         return false;
+    }
+
+    // Resolves the nullable reference type annotations for a property or field,
+    // additionally addressing a few known bugs of the NullabilityInfo pre .NET 9.
+    private static NullabilityInfo GetMemberNullability(this NullabilityInfoContext context, MemberInfo memberInfo)
+    {
+        Debug.Assert(memberInfo is PropertyInfo or FieldInfo);
+        return memberInfo is PropertyInfo prop
+            ? context.Create(prop)
+            : context.Create((FieldInfo)memberInfo);
+    }
+
+    private static NullabilityState GetParameterNullability(this NullabilityInfoContext context, ParameterInfo parameterInfo)
+    {
+        // Workaround for https://github.com/dotnet/runtime/issues/92487
+        if (parameterInfo.GetGenericParameterDefinition() is { ParameterType: { IsGenericParameter: true } typeParam })
+        {
+            // Step 1. Look for nullable annotations on the type parameter.
+            if (GetNullableFlags(typeParam) is byte[] flags)
+            {
+                return TranslateByte(flags[0]);
+            }
+
+            // Step 2. Look for nullable annotations on the generic method declaration.
+            if (typeParam.DeclaringMethod != null && GetNullableContextFlag(typeParam.DeclaringMethod) is byte flag)
+            {
+                return TranslateByte(flag);
+            }
+
+            // Step 3. Look for nullable annotations on the generic method declaration.
+            if (GetNullableContextFlag(typeParam.DeclaringType!) is byte flag2)
+            {
+                return TranslateByte(flag2);
+            }
+
+            // Default to nullable.
+            return NullabilityState.Nullable;
+
+            static byte[]? GetNullableFlags(MemberInfo member)
+            {
+                Attribute? attr = member.GetCustomAttributes().FirstOrDefault(attr =>
+                {
+                    Type attrType = attr.GetType();
+                    return attrType.Namespace == "System.Runtime.CompilerServices" && attrType.Name == "NullableAttribute";
+                });
+
+                return (byte[])attr?.GetType().GetField("NullableFlags")?.GetValue(attr)!;
+            }
+
+            static byte? GetNullableContextFlag(MemberInfo member)
+            {
+                Attribute? attr = member.GetCustomAttributes().FirstOrDefault(attr =>
+                {
+                    Type attrType = attr.GetType();
+                    return attrType.Namespace == "System.Runtime.CompilerServices" && attrType.Name == "NullableContextAttribute";
+                });
+
+                return (byte?)attr?.GetType().GetField("Flag")?.GetValue(attr)!;
+            }
+
+            static NullabilityState TranslateByte(byte b) =>
+                b switch
+                {
+                    1 => NullabilityState.NotNull,
+                    2 => NullabilityState.Nullable,
+                    _ => NullabilityState.Unknown
+                };
+        }
+
+        return context.Create(parameterInfo).WriteState;
+    }
+
+    private static ParameterInfo GetGenericParameterDefinition(this ParameterInfo parameter)
+    {
+        if (parameter.Member is { DeclaringType.IsConstructedGenericType: true }
+                             or MethodInfo { IsGenericMethod: true, IsGenericMethodDefinition: false })
+        {
+            var genericMethod = (MethodBase)parameter.Member.GetGenericMemberDefinition()!;
+            return genericMethod.GetParameters()[parameter.Position];
+        }
+
+        return parameter;
+    }
+
+    [SuppressMessage("Trimming", "IL2075:'this' argument does not satisfy 'DynamicallyAccessedMembersAttribute' in call to target method. The return value of the source method does not have matching annotations.",
+        Justification = "Looking up the generic member definition of the provided member.")]
+    private static MemberInfo GetGenericMemberDefinition(this MemberInfo member)
+    {
+        if (member is Type type)
+        {
+            return type.IsConstructedGenericType ? type.GetGenericTypeDefinition() : type;
+        }
+
+        if (member.DeclaringType!.IsConstructedGenericType)
+        {
+            const BindingFlags AllMemberFlags =
+                BindingFlags.Static | BindingFlags.Instance |
+                BindingFlags.Public | BindingFlags.NonPublic;
+
+            return member.DeclaringType.GetGenericTypeDefinition()
+                .GetMember(member.Name, AllMemberFlags)
+                .First(m => m.MetadataToken == member.MetadataToken);
+        }
+
+        if (member is MethodInfo { IsGenericMethod: true, IsGenericMethodDefinition: false } method)
+        {
+            return method.GetGenericMethodDefinition();
+        }
+
+        return member;
     }
 }

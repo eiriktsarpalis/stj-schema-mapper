@@ -61,10 +61,10 @@ public abstract class JsonSchemaMapperTests
     [InlineData(typeof(int[]), "array")]
     [InlineData(typeof(Dictionary<string, int>), "object")]
     [InlineData(typeof(TestTypes.SimplePoco), "object")]
-    public void AllowNullForReferenceTypes_EnablesReferenceTypeNullability(Type referenceType, string expectedType)
+    public void ResolveNullableReferenceTypes_Disabled_MarksAllReferenceTypesAsNullable(Type referenceType, string expectedType)
     {
         Assert.True(!referenceType.IsValueType);
-        var config = new JsonSchemaMapperConfiguration { AllowNullForReferenceTypes = true };
+        var config = new JsonSchemaMapperConfiguration { ResolveNullableReferenceTypes = false };
         JsonObject schema = Options.GetJsonSchema(referenceType, config);
         JsonArray arr = Assert.IsType<JsonArray>(schema["type"]);
         Assert.Equal([expectedType, "null"], arr.Select(e => (string)e!));
@@ -77,19 +77,19 @@ public abstract class JsonSchemaMapperTests
     [InlineData(typeof(ImmutableArray<int>), "array")]
     [InlineData(typeof(TestTypes.StructDictionary<string, int>), "object")]
     [InlineData(typeof(TestTypes.SimpleRecordStruct), "object")]
-    public void AllowNullForReferenceTypes_DoesNotImpactNonReferenceTypes(Type referenceType, string expectedType)
+    public void ResolveNullableReferenceTypes_Disabled_DoesNotImpactNonReferenceTypes(Type referenceType, string expectedType)
     {
         Assert.True(referenceType.IsValueType);
-        var config = new JsonSchemaMapperConfiguration { AllowNullForReferenceTypes = true };
+        var config = new JsonSchemaMapperConfiguration { ResolveNullableReferenceTypes = false };
         JsonObject schema = Options.GetJsonSchema(referenceType, config);
         JsonValue value = Assert.IsAssignableFrom<JsonValue>(schema["type"]);
         Assert.Equal(expectedType, (string)value!);
     }
 
     [Fact]
-    public void AllowNullForReferenceTypes_DoesNotImpactObject()
+    public void ResolveNullableReferenceTypes_Disabled_DoesNotImpactObjectType()
     {
-        var config = new JsonSchemaMapperConfiguration { AllowNullForReferenceTypes = true };
+        var config = new JsonSchemaMapperConfiguration { ResolveNullableReferenceTypes = false };
         JsonObject schema = Options.GetJsonSchema(typeof(object), config);
         Assert.DoesNotContain("type", schema);
     }
@@ -97,9 +97,9 @@ public abstract class JsonSchemaMapperTests
     [Theory]
     [InlineData(typeof(TestTypes.SimpleRecord))]
     [InlineData(typeof(TestTypes.RecordWithOptionalParameters))]
-    public void RequireNonOptionalConstructorParameters_TypeWithConstructorHasNoRequiredProperties(Type type)
+    public void RequireConstructorParameters_Disabled_TypeWithConstructorHasNoRequiredProperties(Type type)
     {
-        var config = new JsonSchemaMapperConfiguration { RequireNonOptionalConstructorParameters = false };
+        var config = new JsonSchemaMapperConfiguration { RequireConstructorParameters = false };
         JsonObject schema = Options.GetJsonSchema(type, config);
         Assert.DoesNotContain("required", schema);
     }

@@ -16,7 +16,7 @@ JsonObject schema = options.GetJsonSchema(typeof(Person));
 //   "properties": { 
 //     "Name": { "type": "string", "description": "The name" },
 //     "Age": { "type": "integer", "description": "The age" },
-//     "Address": { "type": "string", "description": "The address (default value: \"unknown\")" }
+//     "Address": { "type": ["string", "null"], "description": "The address (default value: null)" }
 //   },
 //   "required": ["Name", "Age"]
 // }
@@ -25,7 +25,7 @@ JsonObject schema = options.GetJsonSchema(typeof(Person));
 public record Person(
     [Description("The name")] string Name, 
     [Description("The age")] int Age, 
-    [Description("The address")] string Address = "unknown");
+    [Description("The address")] string? Address = null);
 ```
 
 Schema generation can be configured using using the `JsonSchemaMapperConfiguration` type:
@@ -38,7 +38,7 @@ JsonObject schema = PersonContext.Default.Person.ToJsonSchema(config);
 //   "properties": { 
 //     "Name": { "type": "string" },
 //     "Age": { "type": "integer" },
-//     "Address": { "type": "string", "description": "default value: \"unknown\"" }
+//     "Address": { "type": ["string", "null"], "description": "default value: null" }
 //   },
 //   "required": ["Name", "Age"]  
 // }

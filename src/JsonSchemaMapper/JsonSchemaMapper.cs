@@ -20,7 +20,7 @@ namespace JsonSchemaMapper;
 /// Maps .NET types to JSON schema objects using contract metadata from <see cref="JsonTypeInfo"/> instances.
 /// </summary>
 #if EXPOSE_JSON_SCHEMA_MAPPER
-public
+    public
 #else
     internal
 #endif
@@ -97,6 +97,7 @@ public
         ref GenerationState state,
         string? description = null,
         JsonConverter? customConverter = null,
+        bool isNullableReferenceType = false,
         JsonNumberHandling? customNumberHandling = null,
         KeyValuePair<string, JsonNode?>? derivedTypeDiscriminator = null,
         Type? parentNullableOfT = null)
@@ -107,13 +108,14 @@ public
         JsonConverter effectiveConverter = customConverter ?? typeInfo.Converter;
         JsonNumberHandling? effectiveNumberHandling = customNumberHandling ?? typeInfo.NumberHandling;
         bool emitsTypeDiscriminator = derivedTypeDiscriminator?.Value is not null;
+        bool isCacheable = !emitsTypeDiscriminator && description is null;
 
         if (!IsBuiltInConverter(effectiveConverter))
         {
             return new JsonObject(); // We can't make any schema determinations if a custom converter is used
         }
 
-        if (!emitsTypeDiscriminator && state.TryGetGeneratedSchemaPath(parentNullableOfT ?? type, effectiveConverter, out string? typePath))
+        if (isCacheable && state.TryGetGeneratedSchemaPath(type, parentNullableOfT, customConverter, isNullableReferenceType, customNumberHandling, out string? typePath))
         {
             // Schema for type has already been generated, return a reference to it.
             // For derived types using discriminators, the schema is generated inline.
@@ -139,12 +141,12 @@ public
                 parentNullableOfT: type);
         }
 
-        if (!emitsTypeDiscriminator && typeInfo.Kind != JsonTypeInfoKind.None)
+        if (isCacheable && typeInfo.Kind != JsonTypeInfoKind.None)
         {
             // For complex types such objects, arrays, and dictionaries register the current path
             // so that it can be referenced by later occurrences in the type graph. Do not register
             // types in a polymorphic hierarchy using discriminators as they need to be inlined.
-            state.RegisterTypePath(parentNullableOfT ?? type, effectiveConverter);
+            state.RegisterTypePath(type, parentNullableOfT, customConverter, isNullableReferenceType, customNumberHandling);
         }
 
         JsonSchemaType schemaType = JsonSchemaType.Any;
@@ -293,34 +295,64 @@ public
 
                     JsonNumberHandling? propertyNumberHandling = property.NumberHandling ?? effectiveNumberHandling;
                     JsonTypeInfo propertyTypeInfo = typeInfo.Options.GetTypeInfo(property.PropertyType);
-                    string? propertyDescription = state.Configuration.ResolveDescriptionAttributes
-                        ? ResolveAttributeProvider(typeInfo, property)?.GetCustomAttributes(inherit: true).OfType<DescriptionAttribute>().FirstOrDefault()?.Description
+
+                    // Only resolve nullability metadata for reference types.
+                    NullabilityInfoContext? nullabilityCtx = !property.PropertyType.IsValueType ? state.NullabilityInfoContext : null;
+
+                    // Only resolve the attribute provider if needed.
+                    ICustomAttributeProvider? attributeProvider = state.Configuration.ResolveDescriptionAttributes || nullabilityCtx != null
+                        ? ResolveAttributeProvider(typeInfo, property)
                         : null;
+
+                    // Resolve property-level description attributes.
+                    string? propertyDescription = state.Configuration.ResolveDescriptionAttributes
+                        ? attributeProvider?.GetCustomAttributes(inherit: true).OfType<DescriptionAttribute>().FirstOrDefault()?.Description
+                        : null;
+
+                    // Declare the property as nullable if either getter or setter are nullable.
+                    bool isPropertyNullableReferenceType = nullabilityCtx != null && attributeProvider is MemberInfo memberInfo
+                        ? nullabilityCtx.GetMemberNullability(memberInfo) is { WriteState: NullabilityState.Nullable } or { ReadState: NullabilityState.Nullable }
+                        : false;
 
                     bool isRequired = property.IsRequired;
                     if (parameterInfoMapper(property) is ParameterInfo ctorParam)
                     {
                         if (state.Configuration.ResolveDescriptionAttributes)
                         {
+                            // Resolve parameter-level description attributes.
                             propertyDescription ??= ctorParam.GetCustomAttribute<DescriptionAttribute>()?.Description;
+                        }
+
+                        if (!isPropertyNullableReferenceType && nullabilityCtx != null)
+                        {
+                            // Additionally look up the annotation of the constructor parameter to check if nullable.
+                            isPropertyNullableReferenceType = nullabilityCtx.GetParameterNullability(ctorParam) is NullabilityState.Nullable;
                         }
 
                         if (ctorParam.HasDefaultValue)
                         {
-                            JsonTypeInfo paramTypeInfo = typeInfo.Options.GetTypeInfo(ctorParam.ParameterType);
-                            string defaultValueJson = JsonSerializer.Serialize(ctorParam.DefaultValue, paramTypeInfo);
+                            // Append the default value to the property description.
+                            string defaultValueJson = JsonSerializer.Serialize(ctorParam.DefaultValue, propertyTypeInfo);
                             propertyDescription = propertyDescription is null
                                 ? $"default value: {defaultValueJson}"
                                 : $"{propertyDescription} (default value: {defaultValueJson})";
                         }
-                        else if (state.Configuration.RequireNonOptionalConstructorParameters)
+                        else if (state.Configuration.RequireConstructorParameters)
                         {
+                            // Parameter is not optional, mark as required.
                             isRequired = true;
                         }
                     }
 
                     state.Push(property.Name);
-                    JsonObject propertySchema = MapJsonSchemaCore(propertyTypeInfo, ref state, propertyDescription, property.CustomConverter, propertyNumberHandling);
+                    JsonObject propertySchema = MapJsonSchemaCore(
+                        propertyTypeInfo,
+                        ref state,
+                        propertyDescription,
+                        property.CustomConverter,
+                        isPropertyNullableReferenceType,
+                        propertyNumberHandling);
+
                     state.Pop();
 
                     (properties ??= new()).Add(property.Name, propertySchema);
@@ -393,7 +425,6 @@ public
                 state.Push(AdditionalPropertiesPropertyName);
                 additionalProperties = MapJsonSchemaCore(valueTypeInfo, ref state);
                 state.Pop();
-
                 break;
 
             default:
@@ -402,11 +433,12 @@ public
         }
 
         if (schemaType != JsonSchemaType.Any &&
-            (type.IsValueType ? parentNullableOfT != null : state.Configuration.AllowNullForReferenceTypes))
+            (type.IsValueType ? parentNullableOfT != null : (isNullableReferenceType || !state.Configuration.ResolveNullableReferenceTypes)))
         {
-            // Add null support for nullable types and reference types when configured.
-            // NB STJ does not currently honor non-nullable reference type annotations.
-            // cf. https://github.com/dotnet/runtime/issues/1256
+            // Append "null" to the type array in the following cases:
+            // 1. The type is a nullable value type or
+            // 2. The type has been inferred to be a nullable reference type annotation or
+            // 3. The type is a reference type and nullable reference types are not resolved (default STJ semantics).
             schemaType |= JsonSchemaType.Null;
         }
 
@@ -426,20 +458,23 @@ public
 
     private ref struct GenerationState
     {
+        private readonly JsonSchemaMapperConfiguration _configuration;
+        private readonly NullabilityInfoContext? _nullabilityInfoContext;
+        private readonly Dictionary<(Type, JsonConverter? CustomConverter, bool IsNullableReferenceType, JsonNumberHandling? customNumberHandling), string>? _generatedTypePaths;
         private readonly List<string>? _currentPath;
-        private readonly Dictionary<(Type, JsonConverter), string>? _generatedTypePaths;
         private int _currentDepth;
 
         public GenerationState(JsonSchemaMapperConfiguration configuration)
         {
-            Configuration = configuration;
-            _currentPath = configuration.AllowSchemaReferences ? new() : null;
+            _configuration = configuration;
+            _nullabilityInfoContext = configuration.ResolveNullableReferenceTypes ? new() : null;
             _generatedTypePaths = configuration.AllowSchemaReferences ? new() : null;
+            _currentPath = configuration.AllowSchemaReferences ? new() : null;
             _currentDepth = 0;
         }
 
-        public readonly JsonSchemaMapperConfiguration Configuration;
-
+        public readonly JsonSchemaMapperConfiguration Configuration => _configuration;
+        public readonly NullabilityInfoContext? NullabilityInfoContext => _nullabilityInfoContext;
         public readonly int CurrentDepth => _currentDepth;
 
         public void Push(string nodeId)
@@ -471,7 +506,10 @@ public
             }
         }
 
-        public readonly void RegisterTypePath(Type type, JsonConverter converter)
+        /// <summary>
+        /// Associates the specified type configuration with the current path in the schema.
+        /// </summary>
+        public readonly void RegisterTypePath(Type type, Type? parentNullableOfT, JsonConverter? customConverter, bool isNullableReferenceType, JsonNumberHandling? customNumberHandling)
         {
             if (Configuration.AllowSchemaReferences)
             {
@@ -479,16 +517,19 @@ public
                 Debug.Assert(_generatedTypePaths != null);
 
                 string pointer = _currentDepth == 0 ? "#" : "#/" + string.Join("/", _currentPath);
-                _generatedTypePaths!.Add((type, converter), pointer);
+                _generatedTypePaths!.Add((parentNullableOfT ?? type, customConverter, isNullableReferenceType, customNumberHandling), pointer);
             }
         }
 
-        public readonly bool TryGetGeneratedSchemaPath(Type type, JsonConverter converter, [NotNullWhen(true)]out string? value)
+        /// <summary>
+        /// Looks up the schema path for the specified type configuration.
+        /// </summary>
+        public readonly bool TryGetGeneratedSchemaPath(Type type, Type? parentNullableOfT, JsonConverter? customConverter, bool isNullableReferenceType, JsonNumberHandling? customNumberHandling, [NotNullWhen(true)]out string? value)
         {
             if (Configuration.AllowSchemaReferences)
             {
                 Debug.Assert(_generatedTypePaths != null);
-                return _generatedTypePaths!.TryGetValue((type, converter), out value);
+                return _generatedTypePaths!.TryGetValue((parentNullableOfT ?? type, customConverter, isNullableReferenceType, customNumberHandling), out value);
             }
 
             value = null;

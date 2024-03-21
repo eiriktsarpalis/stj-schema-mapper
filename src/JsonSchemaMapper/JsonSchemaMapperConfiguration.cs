@@ -51,22 +51,22 @@ namespace JsonSchemaMapper;
     /// Determines whether nullability should be included in the schema for reference types.
     /// </summary>
     /// <remarks>
-    /// Defaults to false. Currently STJ doesn't recognize non-nullable reference types
+    /// Defaults to true. Currently STJ doesn't recognize non-nullable reference types
     /// (https://github.com/dotnet/runtime/issues/1256) so the serializer will always treat
-    /// them as nullable. Enabling this option improves accuracy of the generated schema
+    /// them as nullable. Disabling this option improves accuracy of the generated schema
     /// with respect to the actual serialization behavior but can result in more noise.
     /// </remarks>
-    public bool AllowNullForReferenceTypes { get; init; }
+    public bool ResolveNullableReferenceTypes { get; init; } = true;
 
     /// <summary>
-    /// Dtermines whether properties bound non-optional constructor parameters should be flagged as required.
+    /// Dtermines whether properties bound to non-optional constructor parameters should be flagged as required.
     /// </summary>
     /// <remarks>
     /// Defaults to true. Current STJ treats all constructor parameters as optional
     /// (https://github.com/dotnet/runtime/issues/100075) so disabling this option
     /// will generate schemas that are more compatible with the actual serialization behavior.
     /// </remarks>
-    public bool RequireNonOptionalConstructorParameters { get; init; } = true;
+    public bool RequireConstructorParameters { get; init; } = true;
 
     /// <summary>
     /// Determines the maximum permitted depth when traversing the generated type graph.

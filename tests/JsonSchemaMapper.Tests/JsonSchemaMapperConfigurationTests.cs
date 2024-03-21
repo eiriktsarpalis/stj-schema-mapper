@@ -13,8 +13,8 @@ public static class JsonSchemaMapperConfigurationTests
         Assert.True(configuration.AllowSchemaReferences);
         Assert.True(configuration.IncludeSchemaVersion);
         Assert.True(configuration.ResolveDescriptionAttributes);
-        Assert.False(configuration.AllowNullForReferenceTypes);
-        Assert.True(configuration.RequireNonOptionalConstructorParameters);
+        Assert.True(configuration.ResolveNullableReferenceTypes);
+        Assert.True(configuration.RequireConstructorParameters);
         Assert.Equal(64, configuration.MaxDepth);
     }
 
@@ -54,19 +54,19 @@ public static class JsonSchemaMapperConfigurationTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public static void JsonSchemaMapperConfiguration_AllowNullForReferenceTypes(bool allowNullForReferenceTypes)
+    public static void JsonSchemaMapperConfiguration_ResolveNullableReferenceTypes(bool resolveNullableReferenceTypes)
     {
-        JsonSchemaMapperConfiguration configuration = new() { AllowNullForReferenceTypes = allowNullForReferenceTypes };
-        Assert.Equal(allowNullForReferenceTypes, configuration.AllowNullForReferenceTypes);
+        JsonSchemaMapperConfiguration configuration = new() { ResolveNullableReferenceTypes = resolveNullableReferenceTypes };
+        Assert.Equal(resolveNullableReferenceTypes, configuration.ResolveNullableReferenceTypes);
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public static void JsonSchemaMapperConfiguration_RequireNonOptionalConstructorParameters(bool requireNonOptionalConstructorParameters)
+    public static void JsonSchemaMapperConfiguration_RequireConstructorParameters(bool requiredConstructorParameters)
     {
-        JsonSchemaMapperConfiguration configuration = new() { RequireNonOptionalConstructorParameters = requireNonOptionalConstructorParameters };
-        Assert.Equal(requireNonOptionalConstructorParameters, configuration.RequireNonOptionalConstructorParameters);
+        JsonSchemaMapperConfiguration configuration = new() { RequireConstructorParameters = requiredConstructorParameters };
+        Assert.Equal(requiredConstructorParameters, configuration.RequireConstructorParameters);
     }
 
     [Theory]
