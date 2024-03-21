@@ -10,17 +10,11 @@ namespace JsonSchemaMapper.Tests;
 public abstract class JsonSchemaMapperTests
 {
     protected abstract JsonSerializerOptions Options { get; }
-    protected bool IsSourceGeneratedTestSuite => Options.TypeInfoResolver is JsonSerializerContext;
 
     [Theory]
     [MemberData(nameof(TestTypes.GetTestData), MemberType = typeof(TestTypes))]
     public void TestTypes_GeneratesExpectedJsonSchema(ITestData testData)
     {
-        if (!testData.IsSourceGenSupported && IsSourceGeneratedTestSuite)
-        {
-            return;
-        }
-
         JsonObject schema = Options.GetJsonSchema(testData.Type, testData.Configuration);
         Helpers.AssertValidJsonSchema(testData.Type, testData.ExpectedJsonSchema, schema);
     }
@@ -98,6 +92,16 @@ public abstract class JsonSchemaMapperTests
         var config = new JsonSchemaMapperConfiguration { AllowNullForReferenceTypes = true };
         JsonObject schema = Options.GetJsonSchema(typeof(object), config);
         Assert.DoesNotContain("type", schema);
+    }
+
+    [Theory]
+    [InlineData(typeof(TestTypes.SimpleRecord))]
+    [InlineData(typeof(TestTypes.RecordWithOptionalParameters))]
+    public void RequireNonOptionalConstructorParameters_TypeWithConstructorHasNoRequiredProperties(Type type)
+    {
+        var config = new JsonSchemaMapperConfiguration { RequireNonOptionalConstructorParameters = false };
+        JsonObject schema = Options.GetJsonSchema(type, config);
+        Assert.DoesNotContain("required", schema);
     }
 
     [Fact]

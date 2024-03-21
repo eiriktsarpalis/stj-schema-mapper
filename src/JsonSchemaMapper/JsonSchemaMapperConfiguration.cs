@@ -59,6 +59,16 @@ namespace JsonSchemaMapper;
     public bool AllowNullForReferenceTypes { get; init; }
 
     /// <summary>
+    /// Dtermines whether properties bound non-optional constructor parameters should be flagged as required.
+    /// </summary>
+    /// <remarks>
+    /// Defaults to true. Current STJ treats all constructor parameters as optional
+    /// (https://github.com/dotnet/runtime/issues/100075) so disabling this option
+    /// will generate schemas that are more compatible with the actual serialization behavior.
+    /// </remarks>
+    public bool RequireNonOptionalConstructorParameters { get; init; } = true;
+
+    /// <summary>
     /// Determines the maximum permitted depth when traversing the generated type graph.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when the value is less than 0.</exception>

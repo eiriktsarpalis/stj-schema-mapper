@@ -14,14 +14,18 @@ JsonObject schema = options.GetJsonSchema(typeof(Person));
 //   "description": "A person record.",
 //   "type": "object",
 //   "properties": { 
-//     "Name": { "type": "string" },
-//     "Age": { "type": "integer" },
-//     "Address": { "type": "string" }
-//   }  
+//     "Name": { "type": "string", "description": "The name" },
+//     "Age": { "type": "integer", "description": "The age" },
+//     "Address": { "type": "string", "description": "The address (default value: \"unknown\")" }
+//   },
+//   "required": ["Name", "Age"]
 // }
 
 [Description("A person record.")]
-public record Person(string Name, int Age, string Address);
+public record Person(
+    [Description("The name")] string Name, 
+    [Description("The age")] int Age, 
+    [Description("The address")] string Address = "unknown");
 ```
 
 Schema generation can be configured using using the `JsonSchemaMapperConfiguration` type:
@@ -34,8 +38,9 @@ JsonObject schema = PersonContext.Default.Person.ToJsonSchema(config);
 //   "properties": { 
 //     "Name": { "type": "string" },
 //     "Age": { "type": "integer" },
-//     "Address": { "type": "string" }
-//   }  
+//     "Address": { "type": "string", "description": "default value: \"unknown\"" }
+//   },
+//   "required": ["Name", "Age"]  
 // }
 
 [JsonSerializable(typeof(Person))]

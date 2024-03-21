@@ -94,8 +94,56 @@ internal static partial class TestTypes
 
         // User-defined POCOs
         yield return new TestData<SimplePoco>(new() { X = "string", Y = 42, Z = 3.14, W = true });
-        yield return new TestData<SimpleRecord>(new(1, "two", true, 3.14));
-        yield return new TestData<SimpleRecordStruct>(new(1, "two", true, 3.14));
+        yield return new TestData<SimpleRecord>(
+            Value: new(1, "two", true, 3.14),
+            ExpectedJsonSchema: """
+            {
+              "type": "object",
+              "properties": {
+                "X": { "type": "integer" },
+                "Y": { "type": "string" },
+                "Z": { "type": "boolean" },
+                "W": { "type": "number" }
+              },
+              "required": ["X","Y","Z","W"]
+            }
+            """);
+
+        yield return new TestData<SimpleRecordStruct>(
+            Value: new(1, "two", true, 3.14),
+            ExpectedJsonSchema: """
+            {
+              "type": "object",
+              "properties": {
+                "X": { "type": "integer" },
+                "Y": { "type": "string" },
+                "Z": { "type": "boolean" },
+                "W": { "type": "number" }
+              }
+            }
+            """);
+
+        yield return new TestData<RecordWithOptionalParameters>(
+            Value: new(1, "two", true, 3.14, StringEnum.A),
+            ExpectedJsonSchema: """
+            {
+              "type": "object",
+              "properties": {
+                "X1": { "type": "integer", "description": "required integer" },
+                "X2": { "type": "string" },
+                "X3": { "type": "boolean" },
+                "X4": { "type": "number" },
+                "X5": { "enum": ["A", "B", "C"], "description": "required string enum" },
+                "Y1": { "type": "integer", "description": "optional integer (default value: 42)" },
+                "Y2": { "type": "string", "description": "default value: \"str\"" },
+                "Y3": { "type": "boolean", "description": "default value: true" },
+                "Y4": { "type": "number", "description": "default value: 0" },
+                "Y5": { "enum": ["A", "B", "C"], "description": "optional string enum (default value: \"A\")" }
+              },
+              "required": ["X1", "X2", "X3", "X4", "X5"]
+            }
+            """);
+
         yield return new TestData<PocoWithRequiredMembers>(
             new() { X = "str1", Y = "str2" }, 
             ExpectedJsonSchema: """
@@ -163,8 +211,7 @@ internal static partial class TestTypes
                 }
               }
             }
-            """,
-            IsSourceGenSupported: false); // Cannot resolve property attributes from source gen metadata
+            """);
 
         yield return new TestData<PocoWithCustomConverter>(new() { Value = 42 }, ExpectedJsonSchema: "{}");
         yield return new TestData<PocoWithCustomPropertyConverter>(new() { Value = 42 }, ExpectedJsonSchema: """{"type":"object","properties":{"Value":{}}}""");
@@ -461,6 +508,10 @@ internal static partial class TestTypes
     public record SimpleRecord(int X, string Y, bool Z, double W);
     public record struct SimpleRecordStruct(int X, string Y, bool Z, double W);
 
+    public record RecordWithOptionalParameters(
+        [property: Description("required integer")] int X1, string X2, bool X3, double X4, [Description("required string enum")] StringEnum X5, 
+        [property: Description("optional integer")] int Y1 = 42, string Y2 = "str", bool Y3 = true, double Y4 = 0, [Description("optional string enum")] StringEnum Y5 = StringEnum.A);
+
     public class PocoWithRequiredMembers
     {
         [JsonInclude]
@@ -720,6 +771,7 @@ internal static partial class TestTypes
     [JsonSerializable(typeof(SimplePoco))]
     [JsonSerializable(typeof(SimpleRecord))]
     [JsonSerializable(typeof(SimpleRecordStruct))]
+    [JsonSerializable(typeof(RecordWithOptionalParameters))]
     [JsonSerializable(typeof(PocoWithRequiredMembers))]
     [JsonSerializable(typeof(PocoWithIgnoredMembers))]
     [JsonSerializable(typeof(PocoWithCustomNaming))]
@@ -760,8 +812,8 @@ public record TestData<T>(
     T? Value, 
     IEnumerable<T?>? AdditionalValues = null,
     [StringSyntax("Json")] string? ExpectedJsonSchema = null,
-    JsonSchemaMapperConfiguration? Configuration = null,
-    bool IsSourceGenSupported = true) : ITestData
+    JsonSchemaMapperConfiguration? Configuration = null)
+    : ITestData
 {
     public Type Type => typeof(T);
     object? ITestData.Value => Value;
@@ -791,8 +843,6 @@ public interface ITestData
     /// Fall back to JsonSchemaGenerator as the source of truth if null.
     /// </summary>
     string? ExpectedJsonSchema { get; }
-
-    bool IsSourceGenSupported { get; }
 
     JsonSchemaMapperConfiguration? Configuration { get; }
 

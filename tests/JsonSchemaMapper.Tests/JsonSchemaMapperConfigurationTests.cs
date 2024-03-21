@@ -14,6 +14,7 @@ public static class JsonSchemaMapperConfigurationTests
         Assert.True(configuration.IncludeSchemaVersion);
         Assert.True(configuration.ResolveDescriptionAttributes);
         Assert.False(configuration.AllowNullForReferenceTypes);
+        Assert.True(configuration.RequireNonOptionalConstructorParameters);
         Assert.Equal(64, configuration.MaxDepth);
     }
 
@@ -57,6 +58,15 @@ public static class JsonSchemaMapperConfigurationTests
     {
         JsonSchemaMapperConfiguration configuration = new() { AllowNullForReferenceTypes = allowNullForReferenceTypes };
         Assert.Equal(allowNullForReferenceTypes, configuration.AllowNullForReferenceTypes);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public static void JsonSchemaMapperConfiguration_RequireNonOptionalConstructorParameters(bool requireNonOptionalConstructorParameters)
+    {
+        JsonSchemaMapperConfiguration configuration = new() { RequireNonOptionalConstructorParameters = requireNonOptionalConstructorParameters };
+        Assert.Equal(requireNonOptionalConstructorParameters, configuration.RequireNonOptionalConstructorParameters);
     }
 
     [Theory]

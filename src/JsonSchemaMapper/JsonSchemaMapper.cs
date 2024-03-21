@@ -20,11 +20,11 @@ namespace JsonSchemaMapper;
 /// Maps .NET types to JSON schema objects using contract metadata from <see cref="JsonTypeInfo"/> instances.
 /// </summary>
 #if EXPOSE_JSON_SCHEMA_MAPPER
-    public
+public
 #else
     internal
 #endif
-    static class JsonSchemaMapper
+    static partial class JsonSchemaMapper
 {
     /// <summary>
     /// The JSON schema draft version used by the generated schemas.
@@ -276,6 +276,8 @@ namespace JsonSchemaMapper;
                     (requiredProperties ??= new()).Add((JsonNode)derivedTypeDiscriminator.Value.Key);
                 }
 
+                Func<JsonPropertyInfo, ParameterInfo?> parameterInfoMapper = ResolveJsonConstructorParameterMapper(typeInfo);
+
                 state.Push(PropertiesPropertyName);
                 foreach (JsonPropertyInfo property in typeInfo.Properties)
                 {
@@ -292,8 +294,30 @@ namespace JsonSchemaMapper;
                     JsonNumberHandling? propertyNumberHandling = property.NumberHandling ?? effectiveNumberHandling;
                     JsonTypeInfo propertyTypeInfo = typeInfo.Options.GetTypeInfo(property.PropertyType);
                     string? propertyDescription = state.Configuration.ResolveDescriptionAttributes
-                        ? property.AttributeProvider?.GetCustomAttributes(inherit: true).OfType<DescriptionAttribute>().FirstOrDefault()?.Description
+                        ? ResolveAttributeProvider(typeInfo, property)?.GetCustomAttributes(inherit: true).OfType<DescriptionAttribute>().FirstOrDefault()?.Description
                         : null;
+
+                    bool isRequired = property.IsRequired;
+                    if (parameterInfoMapper(property) is ParameterInfo ctorParam)
+                    {
+                        if (state.Configuration.ResolveDescriptionAttributes)
+                        {
+                            propertyDescription ??= ctorParam.GetCustomAttribute<DescriptionAttribute>()?.Description;
+                        }
+
+                        if (ctorParam.HasDefaultValue)
+                        {
+                            JsonTypeInfo paramTypeInfo = typeInfo.Options.GetTypeInfo(ctorParam.ParameterType);
+                            string defaultValueJson = JsonSerializer.Serialize(ctorParam.DefaultValue, paramTypeInfo);
+                            propertyDescription = propertyDescription is null
+                                ? $"default value: {defaultValueJson}"
+                                : $"{propertyDescription} (default value: {defaultValueJson})";
+                        }
+                        else if (state.Configuration.RequireNonOptionalConstructorParameters)
+                        {
+                            isRequired = true;
+                        }
+                    }
 
                     state.Push(property.Name);
                     JsonObject propertySchema = MapJsonSchemaCore(propertyTypeInfo, ref state, propertyDescription, property.CustomConverter, propertyNumberHandling);
@@ -301,7 +325,7 @@ namespace JsonSchemaMapper;
 
                     (properties ??= new()).Add(property.Name, propertySchema);
 
-                    if (property.IsRequired)
+                    if (isRequired)
                     {
                         (requiredProperties ??= new()).Add((JsonNode)property.Name);
                     }
@@ -592,88 +616,6 @@ namespace JsonSchemaMapper;
 
             return array;
         }
-    }
-
-    private static bool IsBuiltInConverter(JsonConverter converter)
-        => converter.GetType().Assembly == typeof(JsonConverter).Assembly;
-
-    private static Type GetElementType(JsonTypeInfo typeInfo)
-    {
-        // Workaround for https://github.com/dotnet/runtime/issues/77306#issuecomment-2007887560
-        Debug.Assert(typeInfo.Kind is JsonTypeInfoKind.Enumerable or JsonTypeInfoKind.Dictionary);
-        return (Type)typeof(JsonTypeInfo).GetProperty("ElementType", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(typeInfo)!;
-    }
-
-    private static bool TryGetStringEnumConverterValues(JsonTypeInfo typeInfo, JsonConverter converter, out JsonArray? values)
-    {
-        Debug.Assert(typeInfo.Type.IsEnum && IsBuiltInConverter(converter));
-
-        if (converter is JsonConverterFactory factory)
-        {
-            converter = factory.CreateConverter(typeInfo.Type, typeInfo.Options)!;
-        }
-
-        // There is unfortunately no way in which we can obtain enum converter configuration without resorting to private reflection
-        // https://github.com/dotnet/runtime/blob/5fda47434cecc590095e9aef3c4e560b7b7ebb47/src/libraries/System.Text.Json/src/System/Text/Json/Serialization/Converters/Value/EnumConverter.cs#L23-L25
-        FieldInfo? converterOptionsField = converter.GetType().GetField("_converterOptions", BindingFlags.Instance | BindingFlags.NonPublic);
-        FieldInfo? namingPolicyField = converter.GetType().GetField("_namingPolicy", BindingFlags.Instance | BindingFlags.NonPublic);
-        Debug.Assert(converterOptionsField != null);
-        Debug.Assert(namingPolicyField != null);
-
-        const int EnumConverterOptionsAllowStrings = 1;
-        var converterOptions = (int)converterOptionsField!.GetValue(converter)!;
-        if ((converterOptions & EnumConverterOptionsAllowStrings) != 0)
-        {
-            if (typeInfo.Type.GetCustomAttribute<FlagsAttribute>() is not null)
-            {
-                // For enums implemented as flags do not surface values in the JSON schema.
-                values = null;
-            }
-            else
-            {
-                var namingPolicy = (JsonNamingPolicy?)namingPolicyField!.GetValue(converter)!;
-                string[] names = Enum.GetNames(typeInfo.Type);
-                values = new JsonArray();
-                foreach (string name in names)
-                {
-                    string effectiveName = namingPolicy?.ConvertName(name) ?? name;
-                    values.Add((JsonNode)effectiveName);
-                }
-            }
-
-            return true;
-        }
-
-        values = null;
-        return false;
-    }
-
-    private static JsonConverter? ExtractCustomNullableConverter(JsonConverter? converter)
-    {
-        Debug.Assert(converter is null || IsBuiltInConverter(converter));
-
-        // There is unfortunately no way in which we can obtain the element converter from a nullable converter without resorting to private reflection
-        // https://github.com/dotnet/runtime/blob/5fda47434cecc590095e9aef3c4e560b7b7ebb47/src/libraries/System.Text.Json/src/System/Text/Json/Serialization/Converters/Value/NullableConverter.cs#L15-L17
-        if (converter != null && converter.GetType().Name == "NullableConverter`1")
-        {
-            FieldInfo? elementConverterField = converter.GetType().GetField("_elementConverter", BindingFlags.Instance | BindingFlags.NonPublic);
-            Debug.Assert(elementConverterField != null);
-            return (JsonConverter)elementConverterField!.GetValue(converter)!;
-        }
-
-        return null;
-    }
-
-    private static bool TryGetNullableElement(Type type, [NotNullWhen(true)] out Type? elementType)
-    {
-        if (type.IsValueType && type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
-        {
-            elementType = type.GetGenericArguments()[0];
-            return true;
-        }
-
-        elementType = null;
-        return false;
     }
 
     private const string SchemaPropertyName = "$schema";
