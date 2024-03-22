@@ -32,7 +32,7 @@ Schema generation can be configured using using the `JsonSchemaMapperConfigurati
 
 ```C#
 var config = new JsonSchemaMapperConfiguration { IncludeSchemaVersion = false, ResolveDescriptionAttributes = false };
-JsonObject schema = PersonContext.Default.Person.ToJsonSchema(config);
+JsonObject schema = PersonContext.Default.Person.GetJsonSchema(config);
 // { 
 //   "type": "object",
 //   "properties": { 
@@ -45,4 +45,30 @@ JsonObject schema = PersonContext.Default.Person.ToJsonSchema(config);
 
 [JsonSerializable(typeof(Person))]
 public partial class PersonContext : JsonSerializerContext;
+```
+
+## Method schema generation
+
+The library also supports generating JSON schemas for methods, for example:
+
+```C#
+MethodInfo method = typeof(TestMethods).GetMethod(nameof(TestMethods.MyMethod))!;
+JsonObject schema = JsonSerializerOptions.Default.GetJsonSchema(method);
+// { 
+//   "$schema": "https://json-schema.org/draft/2020-12/schema",
+//   "description": "A friendly method.",
+//   "type": "object",
+//   "properties": { 
+//     "Name": { "type": "string" },
+//     "Age": { "type": "integer" },
+//     "Address": { "type": ["string", "null"], "description": "default value: null" }
+//   },
+//   "required": ["Name", "Age"]
+// }
+
+public static class TestMethods
+{
+    [Description("A friendly method.")]
+    public static void MyMethod(string name, int age, string? address = null) { }
+}
 ```

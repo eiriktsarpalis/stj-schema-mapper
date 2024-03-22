@@ -39,7 +39,7 @@ namespace JsonSchemaMapper;
     /// <param name="configuration">The configuration object controlling the schema generation.</param>
     /// <returns>A new <see cref="JsonObject"/> instance defining the JSON schema for <paramref name="type"/>.</returns>
     /// <exception cref="ArgumentNullException">One of the specified parameters is <see langword="null" />.</exception>
-    /// <exception cref="InvalidOperationException">The <paramref name="options"/> instance is not marked as read-only.</exception>
+    /// <exception cref="NotSupportedException">The <paramref name="options"/> parameter contains unsupported configuration.</exception>
     public static JsonObject GetJsonSchema(this JsonSerializerOptions options, Type type, JsonSchemaMapperConfiguration? configuration = null)
     {
         if (options is null)
@@ -52,14 +52,87 @@ namespace JsonSchemaMapper;
             ThrowHelpers.ThrowArgumentNullException(nameof(type));
         }
 
-        if (!options.IsReadOnly)
-        {
-            Throw();
-            static void Throw() => throw new InvalidOperationException("The options instance must be read-only");
-        }
+        ValidateOptions(options);
 
         JsonTypeInfo typeInfo = options.GetTypeInfo(type);
-        return ToJsonSchemaCore(typeInfo, configuration);
+        var state = new GenerationState(configuration ?? JsonSchemaMapperConfiguration.Default);
+        return MapJsonSchemaCore(typeInfo, ref state);
+    }
+
+    /// <summary>
+    /// Generates a JSON object schema with properties corresponding to the specified method parameters.
+    /// </summary>
+    /// <param name="options">The options instance from which to resolve the contract metadata.</param>
+    /// <param name="method">The method from whose parameters to generate the JSON schema.</param>
+    /// <param name="configuration">The configuration object controlling the schema generation.</param>
+    /// <returns>A new <see cref="JsonObject"/> instance defining the JSON schema for <paramref name="method"/>.</returns>
+    /// <exception cref="ArgumentNullException">One of the specified parameters is <see langword="null" />.</exception>
+    /// <exception cref="NotSupportedException">The <paramref name="options"/> parameter contains unsupported configuration.</exception>
+    public static JsonObject GetJsonSchema(this JsonSerializerOptions options, MethodBase method, JsonSchemaMapperConfiguration? configuration = null)
+    {
+        if (options is null)
+        {
+            ThrowHelpers.ThrowArgumentNullException(nameof(options));
+        }
+
+        if (method is null)
+        {
+            ThrowHelpers.ThrowArgumentNullException(nameof(method));
+        }
+
+        ValidateOptions(options);
+
+        configuration ??= JsonSchemaMapperConfiguration.Default;
+        string description = (configuration.ResolveDescriptionAttributes ? method.GetCustomAttribute<DescriptionAttribute>()?.Description : null) ?? method.Name;
+
+        JsonObject schema = new()
+        {
+            [DescriptionPropertyName] = description,
+            [TypePropertyName] = "object",
+        };
+
+        ParameterInfo[] parameters = method.GetParameters();
+        if (parameters.Length == 0)
+        {
+            return schema;
+        }
+
+        var state = new GenerationState(configuration);
+        JsonObject paramSchemas = new();
+        JsonArray? requiredParams = null;
+
+        foreach (ParameterInfo parameter in parameters)
+        {
+            if (parameter.Name is null)
+            {
+                ThrowHelpers.ThrowInvalidOperationException_TrimmedMethodParameters(method);
+            }
+
+            JsonTypeInfo parameterInfo = options.GetTypeInfo(parameter.ParameterType);
+            bool isNullableReferenceType = false;
+            string? parameterDescription = null;
+            bool isRequired = false;
+
+            ResolveParameterInfo(parameter, parameterInfo, ref state, ref parameterDescription, ref isNullableReferenceType, ref isRequired);
+
+            state.Push(parameter.Name);
+            JsonObject paramSchema = MapJsonSchemaCore(parameterInfo, ref state, parameterDescription, isNullableReferenceType: isNullableReferenceType);
+            state.Pop();
+
+            paramSchemas.Add(parameter.Name, paramSchema);
+            if (isRequired)
+            {
+                (requiredParams ??= new()).Add((JsonNode)parameter.Name);
+            }
+        }
+
+        schema.Add(PropertiesPropertyName, paramSchemas);
+        if (requiredParams != null)
+        {
+            schema.Add(RequiredPropertyName, requiredParams);
+        }
+
+        return schema;
     }
 
     /// <summary>
@@ -69,25 +142,17 @@ namespace JsonSchemaMapper;
     /// <param name="configuration">The configuration object controlling the schema generation.</param>
     /// <returns>A new <see cref="JsonObject"/> instance defining the JSON schema for <paramref name="typeInfo"/>.</returns>
     /// <exception cref="ArgumentNullException">One of the specified parameters is <see langword="null" />.</exception>
-    public static JsonObject ToJsonSchema(this JsonTypeInfo typeInfo, JsonSchemaMapperConfiguration? configuration = null)
+    /// <exception cref="NotSupportedException">The <paramref name="typeInfo"/> parameter contains unsupported configuration.</exception>
+    public static JsonObject GetJsonSchema(this JsonTypeInfo typeInfo, JsonSchemaMapperConfiguration? configuration = null)
     {
         if (typeInfo is null)
         {
             ThrowHelpers.ThrowArgumentNullException(nameof(typeInfo));
         }
 
-        return ToJsonSchemaCore(typeInfo, configuration);
-    }
-
-    private static JsonObject ToJsonSchemaCore(JsonTypeInfo typeInfo, JsonSchemaMapperConfiguration? configuration)
-    {
-        if (typeInfo.Options.ReferenceHandler == ReferenceHandler.Preserve)
-        {
-            Throw();
-            static void Throw() => throw new NotSupportedException("Schema generation not supported with ReferenceHandler.Preserve enabled.");
-        }
-
+        ValidateOptions(typeInfo.Options);
         typeInfo.MakeReadOnly();
+
         var state = new GenerationState(configuration ?? JsonSchemaMapperConfiguration.Default);
         return MapJsonSchemaCore(typeInfo, ref state);
     }
@@ -317,31 +382,13 @@ namespace JsonSchemaMapper;
                     bool isRequired = property.IsRequired;
                     if (parameterInfoMapper(property) is ParameterInfo ctorParam)
                     {
-                        if (state.Configuration.ResolveDescriptionAttributes)
-                        {
-                            // Resolve parameter-level description attributes.
-                            propertyDescription ??= ctorParam.GetCustomAttribute<DescriptionAttribute>()?.Description;
-                        }
-
-                        if (!isPropertyNullableReferenceType && nullabilityCtx != null)
-                        {
-                            // Additionally look up the annotation of the constructor parameter to check if nullable.
-                            isPropertyNullableReferenceType = nullabilityCtx.GetParameterNullability(ctorParam) is NullabilityState.Nullable;
-                        }
-
-                        if (ctorParam.HasDefaultValue)
-                        {
-                            // Append the default value to the property description.
-                            string defaultValueJson = JsonSerializer.Serialize(ctorParam.DefaultValue, propertyTypeInfo);
-                            propertyDescription = propertyDescription is null
-                                ? $"default value: {defaultValueJson}"
-                                : $"{propertyDescription} (default value: {defaultValueJson})";
-                        }
-                        else if (state.Configuration.RequireConstructorParameters)
-                        {
-                            // Parameter is not optional, mark as required.
-                            isRequired = true;
-                        }
+                        ResolveParameterInfo(
+                            ctorParam,
+                            propertyTypeInfo,
+                            ref state,
+                            ref propertyDescription,
+                            ref isPropertyNullableReferenceType,
+                            ref isRequired);
                     }
 
                     state.Push(property.Name);
@@ -456,6 +503,43 @@ namespace JsonSchemaMapper;
             ref state);
     }
 
+    private static void ResolveParameterInfo(
+        ParameterInfo parameter,
+        JsonTypeInfo parameterTypeInfo,
+        ref GenerationState state,
+        ref string? description,
+        ref bool isNullableReferenceType,
+        ref bool isRequired)
+    {
+        Debug.Assert(parameterTypeInfo.Type == parameter.ParameterType);
+
+        if (state.Configuration.ResolveDescriptionAttributes)
+        {
+            // Resolve parameter-level description attributes.
+            description ??= parameter.GetCustomAttribute<DescriptionAttribute>()?.Description;
+        }
+
+        if (!isNullableReferenceType && state.NullabilityInfoContext is { } ctx)
+        {
+            // Consult the nullability annotation of the constructor parameter if available.
+            isNullableReferenceType = ctx.GetParameterNullability(parameter) is NullabilityState.Nullable;
+        }
+
+        if (parameter.HasDefaultValue)
+        {
+            // Append the default value to the description.
+            string defaultValueJson = JsonSerializer.Serialize(parameter.DefaultValue, parameterTypeInfo);
+            description = description is null
+                ? $"default value: {defaultValueJson}"
+                : $"{description} (default value: {defaultValueJson})";
+        }
+        else if (state.Configuration.RequireConstructorParameters)
+        {
+            // Parameter is not optional, mark as required.
+            isRequired = true;
+        }
+    }
+
     private ref struct GenerationState
     {
         private readonly JsonSchemaMapperConfiguration _configuration;
@@ -481,8 +565,7 @@ namespace JsonSchemaMapper;
         {
             if (_currentDepth == Configuration.MaxDepth)
             {
-                Throw();
-                static void Throw() => throw new InvalidOperationException("The maximum depth of the schema has been reached.");
+                ThrowHelpers.ThrowInvalidOperationException_MaxDepthReached();
             }
 
             _currentDepth++;
@@ -718,9 +801,31 @@ namespace JsonSchemaMapper;
         [typeof(JsonArray)] = (JsonSchemaType.Array, null),
     };
 
+    private static void ValidateOptions(JsonSerializerOptions options)
+    {
+        if (options.ReferenceHandler == ReferenceHandler.Preserve)
+        {
+            ThrowHelpers.ThrowNotSupportedException_ReferenceHandlerPreserveNotSupported();
+        }
+
+        options.MakeReadOnly();
+    }
+
     private static class ThrowHelpers
     {
         [DoesNotReturn]
         public static void ThrowArgumentNullException(string name) => throw new ArgumentNullException(name);
+
+        [DoesNotReturn]
+        public static void ThrowNotSupportedException_ReferenceHandlerPreserveNotSupported() =>
+            throw new NotSupportedException("Schema generation not supported with ReferenceHandler.Preserve enabled.");
+
+        [DoesNotReturn]
+        public static void ThrowInvalidOperationException_TrimmedMethodParameters(MethodBase method) =>
+            throw new InvalidOperationException($"The parameters for method '{method}' have been trimmed away.");
+
+        [DoesNotReturn]
+        public static void ThrowInvalidOperationException_MaxDepthReached() =>
+            throw new InvalidOperationException("The maximum depth of the schema has been reached.");
     }
 }

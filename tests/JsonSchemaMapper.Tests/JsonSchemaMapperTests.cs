@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -26,6 +27,14 @@ public abstract class JsonSchemaMapperTests
         JsonObject schema = Options.GetJsonSchema(testData.Type, testData.Configuration);
         JsonNode? instance = JsonSerializer.SerializeToNode(testData.Value, testData.Type, Options);
         Helpers.AssertDocumentMatchesSchema(schema, instance);
+    }
+
+    [Theory]
+    [MemberData(nameof(TestMethods.GetTestData), MemberType = typeof(TestMethods))]
+    public void TestMethods_GeneratesExpectedJsonSchema(MethodBase method, string expectedJsonSchema)
+    {
+        JsonObject schema = Options.GetJsonSchema(method);
+        Helpers.AssertValidJsonSchema(null!, expectedJsonSchema, schema);
     }
 
     [Theory]
@@ -116,20 +125,16 @@ public abstract class JsonSchemaMapperTests
     public void GetJsonSchema_NullInputs_ThrowsArgumentNullException()
     {
         Assert.Throws<ArgumentNullException>(() => ((JsonSerializerOptions)null!).GetJsonSchema(typeof(int)));
-        Assert.Throws<ArgumentNullException>(() => Options.GetJsonSchema(null!));
+        Assert.Throws<ArgumentNullException>(() => ((JsonSerializerOptions)null!).GetJsonSchema(typeof(int).GetMethods().First()));
+        Assert.Throws<ArgumentNullException>(() => Options.GetJsonSchema((Type)null!));
+        Assert.Throws<ArgumentNullException>(() => Options.GetJsonSchema((MethodBase)null!));
+        Assert.Throws<ArgumentNullException>(() => ((JsonTypeInfo)null!).GetJsonSchema());
     }
 
     [Fact]
-    public void ToJsonSchema_NullInputs_ThrowsArgumentNullException()
+    public void GetJsonSchema_NoResolver_ThrowInvalidOperationException()
     {
-        Assert.Throws<ArgumentNullException>(() => ((JsonTypeInfo)null!).ToJsonSchema());
-    }
-
-    [Fact]
-    public void GetJsonSchema_RequiresReadOnlyOptions()
-    {
-        var options = new JsonSerializerOptions(Options);
-        Assert.False(options.IsReadOnly);
+        var options = new JsonSerializerOptions();
         Assert.Throws<InvalidOperationException>(() => options.GetJsonSchema(typeof(int)));
     }
 
