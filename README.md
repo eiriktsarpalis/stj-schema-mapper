@@ -1,4 +1,4 @@
-# stj-schema-mapper
+# stj-schema-mapper [![Build & Tests](https://github.com/eiriktsarpalis/stj-schema-mapper/actions/workflows/build.yml/badge.svg)](https://github.com/eiriktsarpalis/stj-schema-mapper/actions/workflows/build.yml)
 
 A JSON schema generator for System.Text.Json, deriving metadata information from the `JsonTypeInfo` contract type. The library targets `netstandard2.0` and is safe to use in AOT applications.
 
