@@ -21,6 +21,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{6121850E-126
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{F77E504F-8A4B-4E04-BAF8-3AD60496096A}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".github", ".github", "{8895C2C6-16DE-4B62-A5A8-ED80A7FF0189}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{89C5F0F9-908D-4CF7-94A1-4CC1ADB9FD81}"
+	ProjectSection(SolutionItems) = preProject
+		.github\workflows\build.yml = .github\workflows\build.yml
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -42,6 +49,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{43D06CA4-AA79-47DF-8ACE-5FDF69A88D86} = {6121850E-1263-42A3-84A2-364D9E564656}
 		{D8F5C3E6-A93B-4965-96CE-09F7E42A9AD4} = {F77E504F-8A4B-4E04-BAF8-3AD60496096A}
+		{89C5F0F9-908D-4CF7-94A1-4CC1ADB9FD81} = {8895C2C6-16DE-4B62-A5A8-ED80A7FF0189}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {B01BD792-D310-4A40-A65A-9B4F35B30A89}
