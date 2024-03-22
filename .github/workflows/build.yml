@@ -10,8 +10,8 @@ on:
     branches: [ "main" ]
 
 jobs:
-  Linux:
-    runs-on: ubuntu-latest
+  Windows:
+    runs-on: windows-latest
 
     steps:
     - uses: actions/checkout@v4
@@ -21,15 +21,3 @@ jobs:
         dotnet-version: 8.0.x
     - name: Build & Test
       run: make
-    - name: Code Coverage Report
-      uses: irongut/CodeCoverageSummary@v1.3.0
-      with:
-        filename: artifacts/**/coverage.cobertura.xml
-        badge: true
-        fail_below_min: true
-        format: markdown
-        hide_branch_rate: false
-        hide_complexity: true
-        indicators: true
-        output: both
-        thresholds: '60 80'
