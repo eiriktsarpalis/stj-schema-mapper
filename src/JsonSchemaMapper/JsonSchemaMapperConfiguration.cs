@@ -10,7 +10,7 @@ namespace JsonSchemaMapper;
 /// Controls the behavior of the <see cref="JsonSchemaMapper"/> class.
 /// </summary>
 #if EXPOSE_JSON_SCHEMA_MAPPER
-public
+    public
 #else
     internal
 #endif
