@@ -168,11 +168,11 @@ internal static partial class TestTypes
                 "X3": { "type": "boolean" },
                 "X4": { "type": "number" },
                 "X5": { "enum": ["A", "B", "C"], "description": "required string enum" },
-                "Y1": { "type": "integer", "description": "optional integer (default value: 42)" },
-                "Y2": { "type": "string", "description": "default value: \"str\"" },
-                "Y3": { "type": "boolean", "description": "default value: true" },
-                "Y4": { "type": "number", "description": "default value: 0" },
-                "Y5": { "enum": ["A", "B", "C"], "description": "optional string enum (default value: \"A\")" }
+                "Y1": { "type": "integer", "description": "optional integer", "default": 42 },
+                "Y2": { "type": "string", "default": "str" },
+                "Y3": { "type": "boolean", "default": true },
+                "Y4": { "type": "number", "default": 0 },
+                "Y5": { "enum": ["A", "B", "C"], "description": "optional string enum", "default": "A" }
               },
               "required": ["X1", "X2", "X3", "X4", "X5"]
             }

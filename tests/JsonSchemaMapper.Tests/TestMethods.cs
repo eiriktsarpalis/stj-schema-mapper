@@ -1,10 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
+﻿using System.ComponentModel;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace JsonSchemaMapper.Tests;
 
@@ -16,7 +11,7 @@ internal static class TestMethods
             nameof(ZeroParameters),
             """
             {
-                "description" : "ZeroParameters",
+                "title" : "ZeroParameters",
                 "type": "object"
             }
             """);
@@ -25,7 +20,7 @@ internal static class TestMethods
             nameof(OneIntegerParameter),
             """
             {
-                "description" : "OneIntegerParameter",
+                "title" : "OneIntegerParameter",
                 "type": "object",
                 "properties": {
                     "value": { "type": "integer" }
@@ -38,7 +33,7 @@ internal static class TestMethods
             nameof(OneStringParameter),
             """
             {
-                "description" : "OneStringParameter",
+                "title" : "OneStringParameter",
                 "type": "object",
                 "properties": {
                     "value": { "type": "string" }
@@ -51,7 +46,7 @@ internal static class TestMethods
             nameof(OnePocoParameter),
             """
             {
-                "description" : "OnePocoParameter",
+                "title" : "OnePocoParameter",
                 "type": "object",
                 "properties": {
                     "value": {
@@ -73,17 +68,17 @@ internal static class TestMethods
             nameof(MultipleParameters),
             """
             {
-                "description" : "MultipleParameters",
+                "title" : "MultipleParameters",
                 "type": "object",
                 "properties": {
                     "x1": { "type": "string" },
                     "x2": { "type": "integer" },
-                    "x3": { "description": "default value: null", "type": ["string", "null"] },
-                    "x4": { "description": "default value: 42", "type": ["integer", "null"] },
-                    "x5": { "description": "default value: \"A\"", "enum": ["A", "B", "C"] },
+                    "x3": { "type": ["string", "null"], "default": null },
+                    "x4": { "type": ["integer", "null"], "default" : 42 },
+                    "x5": { "enum": ["A", "B", "C"], "default" : "A" },
                     "x6": {
-                        "description": "default value: null",
                         "type": ["object","null"],
+                        "default" : null,
                         "properties": {
                             "String": { "type": "string" },
                             "StringNullable": { "type": ["string", "null"] },
@@ -101,17 +96,19 @@ internal static class TestMethods
             nameof(DescriptionAttributeParameters),
             """
             {
+                "title" : "DescriptionAttributeParameters",
                 "description" : "Method description",
                 "type": "object",
                 "properties": {
                     "x1": { "description": "x1 description", "type": "string" },
                     "x2": { "description": "x2 description", "type": "integer" },
-                    "x3": { "description": "x3 description (default value: null)", "type": ["string", "null"] },
-                    "x4": { "description": "x4 description (default value: 42)", "type": ["integer", "null"] },
-                    "x5": { "description": "x5 description (default value: \"A\")", "enum": ["A", "B", "C"] },
+                    "x3": { "description": "x3 description", "type": ["string", "null"], "default": null },
+                    "x4": { "description": "x4 description", "type": ["integer", "null"], "default": 42 },
+                    "x5": { "description": "x5 description", "enum": ["A", "B", "C"], "default": "A" },
                     "x6": {
-                        "description": "x6 description (default value: null)",
+                        "description": "x6 description",
                         "type": ["object","null"],
+                        "default": null,
                         "properties": {
                             "String": { "type": "string" },
                             "StringNullable": { "type": ["string", "null"] },

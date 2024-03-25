@@ -14,9 +14,9 @@ JsonObject schema = options.GetJsonSchema(typeof(Person));
 //   "description": "A person record.",
 //   "type": "object",
 //   "properties": { 
-//     "Name": { "type": "string", "description": "The name" },
-//     "Age": { "type": "integer", "description": "The age" },
-//     "Address": { "type": ["string", "null"], "description": "The address (default value: null)" }
+//     "Name": {  "description": "The name", "type": "string" },
+//     "Age": { "description": "The age", "type": "integer" },
+//     "Address": { "description": "The address", "type": ["string", "null"], "default": null }
 //   },
 //   "required": ["Name", "Age"]
 // }
@@ -38,7 +38,7 @@ JsonObject schema = PersonContext.Default.Person.GetJsonSchema(config);
 //   "properties": { 
 //     "Name": { "type": "string" },
 //     "Age": { "type": "integer" },
-//     "Address": { "type": ["string", "null"], "description": "default value: null" }
+//     "Address": { "type": ["string", "null"], "default": null }
 //   },
 //   "required": ["Name", "Age"]  
 // }
@@ -56,12 +56,13 @@ MethodInfo method = typeof(TestMethods).GetMethod(nameof(TestMethods.MyMethod))!
 JsonObject schema = JsonSerializerOptions.Default.GetJsonSchema(method);
 // { 
 //   "$schema": "https://json-schema.org/draft/2020-12/schema",
+//   "title": "MyMethod",
 //   "description": "A friendly method.",
 //   "type": "object",
 //   "properties": { 
 //     "Name": { "type": "string" },
 //     "Age": { "type": "integer" },
-//     "Address": { "type": ["string", "null"], "description": "default value: null" }
+//     "Address": { "type": ["string", "null"], "default": "null" }
 //   },
 //   "required": ["Name", "Age"]
 // }
