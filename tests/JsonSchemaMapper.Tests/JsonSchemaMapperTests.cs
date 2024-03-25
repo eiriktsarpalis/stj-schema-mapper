@@ -70,13 +70,27 @@ public abstract class JsonSchemaMapperTests
     [InlineData(typeof(int[]), "array")]
     [InlineData(typeof(Dictionary<string, int>), "object")]
     [InlineData(typeof(TestTypes.SimplePoco), "object")]
-    public void ResolveNullableReferenceTypes_Disabled_MarksAllReferenceTypesAsNullable(Type referenceType, string expectedType)
+    public void ReferenceTypeNullability_AlwaysNullable_MarksAllReferenceTypesAsNullable(Type referenceType, string expectedType)
     {
         Assert.True(!referenceType.IsValueType);
-        var config = new JsonSchemaMapperConfiguration { ResolveNullableReferenceTypes = false };
+        var config = new JsonSchemaMapperConfiguration { ReferenceTypeNullability = ReferenceTypeNullability.AlwaysNullable };
         JsonObject schema = Options.GetJsonSchema(referenceType, config);
         JsonArray arr = Assert.IsType<JsonArray>(schema["type"]);
         Assert.Equal([expectedType, "null"], arr.Select(e => (string)e!));
+    }
+
+    [Theory]
+    [InlineData(typeof(string), "string")]
+    [InlineData(typeof(int[]), "array")]
+    [InlineData(typeof(Dictionary<string, int>), "object")]
+    [InlineData(typeof(TestTypes.SimplePoco), "object")]
+    public void ReferenceTypeNullability_NeverNullable_MarksAllReferenceTypesAsNullable(Type referenceType, string expectedType)
+    {
+        Assert.True(!referenceType.IsValueType);
+        var config = new JsonSchemaMapperConfiguration { ReferenceTypeNullability = ReferenceTypeNullability.NeverNullable };
+        JsonObject schema = Options.GetJsonSchema(referenceType, config);
+        JsonValue type = Assert.IsAssignableFrom<JsonValue>(schema["type"]);
+        Assert.Equal(expectedType, (string)type!);
     }
 
     [Theory]
@@ -86,19 +100,38 @@ public abstract class JsonSchemaMapperTests
     [InlineData(typeof(ImmutableArray<int>), "array")]
     [InlineData(typeof(TestTypes.StructDictionary<string, int>), "object")]
     [InlineData(typeof(TestTypes.SimpleRecordStruct), "object")]
-    public void ResolveNullableReferenceTypes_Disabled_DoesNotImpactNonReferenceTypes(Type referenceType, string expectedType)
+    public void ReferenceTypeNullability_AlwaysNullable_DoesNotImpactNonReferenceTypes(Type referenceType, string expectedType)
     {
         Assert.True(referenceType.IsValueType);
-        var config = new JsonSchemaMapperConfiguration { ResolveNullableReferenceTypes = false };
+        var config = new JsonSchemaMapperConfiguration { ReferenceTypeNullability = ReferenceTypeNullability.AlwaysNullable };
         JsonObject schema = Options.GetJsonSchema(referenceType, config);
         JsonValue value = Assert.IsAssignableFrom<JsonValue>(schema["type"]);
         Assert.Equal(expectedType, (string)value!);
     }
 
-    [Fact]
-    public void ResolveNullableReferenceTypes_Disabled_DoesNotImpactObjectType()
+    [Theory]
+    [InlineData(typeof(int), "integer")]
+    [InlineData(typeof(double), "number")]
+    [InlineData(typeof(bool), "boolean")]
+    [InlineData(typeof(ImmutableArray<int>), "array")]
+    [InlineData(typeof(TestTypes.StructDictionary<string, int>), "object")]
+    [InlineData(typeof(TestTypes.SimpleRecordStruct), "object")]
+    public void ReferenceTypeNullability_NeverNullable_DoesNotImpactNonReferenceTypes(Type referenceType, string expectedType)
     {
-        var config = new JsonSchemaMapperConfiguration { ResolveNullableReferenceTypes = false };
+        Assert.True(referenceType.IsValueType);
+        var config = new JsonSchemaMapperConfiguration { ReferenceTypeNullability = ReferenceTypeNullability.NeverNullable };
+        JsonObject schema = Options.GetJsonSchema(referenceType, config);
+        JsonValue value = Assert.IsAssignableFrom<JsonValue>(schema["type"]);
+        Assert.Equal(expectedType, (string)value!);
+    }
+
+    [Theory]
+    [InlineData(ReferenceTypeNullability.AlwaysNullable)]
+    [InlineData(ReferenceTypeNullability.Annotated)]
+    [InlineData(ReferenceTypeNullability.NeverNullable)]
+    public void ReferenceTypeNullability_DoesNotImpactObjectType(ReferenceTypeNullability nullability)
+    {
+        var config = new JsonSchemaMapperConfiguration { ReferenceTypeNullability = nullability };
         JsonObject schema = Options.GetJsonSchema(typeof(object), config);
         Assert.DoesNotContain("type", schema);
     }

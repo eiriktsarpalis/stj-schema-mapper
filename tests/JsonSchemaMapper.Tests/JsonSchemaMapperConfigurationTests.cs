@@ -13,7 +13,7 @@ public static class JsonSchemaMapperConfigurationTests
         Assert.True(configuration.AllowSchemaReferences);
         Assert.True(configuration.IncludeSchemaVersion);
         Assert.True(configuration.ResolveDescriptionAttributes);
-        Assert.True(configuration.ResolveNullableReferenceTypes);
+        Assert.Equal(ReferenceTypeNullability.Annotated, configuration.ReferenceTypeNullability);
         Assert.True(configuration.RequireConstructorParameters);
         Assert.Equal(64, configuration.MaxDepth);
     }
@@ -52,12 +52,13 @@ public static class JsonSchemaMapperConfigurationTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public static void JsonSchemaMapperConfiguration_ResolveNullableReferenceTypes(bool resolveNullableReferenceTypes)
+    [InlineData(ReferenceTypeNullability.AlwaysNullable)]
+    [InlineData(ReferenceTypeNullability.Annotated)]
+    [InlineData(ReferenceTypeNullability.NeverNullable)]
+    public static void JsonSchemaMapperConfiguration_ReferenceTypeNullability(ReferenceTypeNullability referenceTypeNullability)
     {
-        JsonSchemaMapperConfiguration configuration = new() { ResolveNullableReferenceTypes = resolveNullableReferenceTypes };
-        Assert.Equal(resolveNullableReferenceTypes, configuration.ResolveNullableReferenceTypes);
+        JsonSchemaMapperConfiguration configuration = new() { ReferenceTypeNullability = referenceTypeNullability };
+        Assert.Equal(referenceTypeNullability, configuration.ReferenceTypeNullability);
     }
 
     [Theory]

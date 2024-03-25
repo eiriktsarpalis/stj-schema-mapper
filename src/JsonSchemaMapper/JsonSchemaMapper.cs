@@ -480,12 +480,14 @@ namespace JsonSchemaMapper;
         }
 
         if (schemaType != JsonSchemaType.Any &&
-            (type.IsValueType ? parentNullableOfT != null : (isNullableReferenceType || !state.Configuration.ResolveNullableReferenceTypes)))
+            (type.IsValueType
+             ? parentNullableOfT != null
+             : (isNullableReferenceType || state.Configuration.ReferenceTypeNullability is ReferenceTypeNullability.AlwaysNullable)))
         {
             // Append "null" to the type array in the following cases:
             // 1. The type is a nullable value type or
             // 2. The type has been inferred to be a nullable reference type annotation or
-            // 3. The type is a reference type and nullable reference types are not resolved (default STJ semantics).
+            // 3. The schema generator has been configured to always emit null for reference types (default STJ semantics).
             schemaType |= JsonSchemaType.Null;
         }
 
@@ -551,7 +553,7 @@ namespace JsonSchemaMapper;
         public GenerationState(JsonSchemaMapperConfiguration configuration)
         {
             _configuration = configuration;
-            _nullabilityInfoContext = configuration.ResolveNullableReferenceTypes ? new() : null;
+            _nullabilityInfoContext = configuration.ReferenceTypeNullability is ReferenceTypeNullability.Annotated ? new() : null;
             _generatedTypePaths = configuration.AllowSchemaReferences ? new() : null;
             _currentPath = configuration.AllowSchemaReferences ? new() : null;
             _currentDepth = 0;

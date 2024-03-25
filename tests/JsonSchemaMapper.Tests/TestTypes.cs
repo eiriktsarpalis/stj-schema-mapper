@@ -126,7 +126,7 @@ internal static partial class TestTypes
                 }
             }
             """,
-            Configuration: new JsonSchemaMapperConfiguration { ResolveNullableReferenceTypes = false });
+            Configuration: new JsonSchemaMapperConfiguration { ReferenceTypeNullability = ReferenceTypeNullability.AlwaysNullable });
 
         yield return new TestData<SimpleRecord>(
             Value: new(1, "two", true, 3.14),
@@ -269,7 +269,7 @@ internal static partial class TestTypes
                 }
             }
             """,
-            Configuration: new JsonSchemaMapperConfiguration { ResolveNullableReferenceTypes = false });
+            Configuration: new JsonSchemaMapperConfiguration { ReferenceTypeNullability = ReferenceTypeNullability.AlwaysNullable });
 
         yield return new TestData<PocoWithDescription>(
             Value: new() { X = 42 },
