@@ -191,7 +191,7 @@ namespace JsonSchemaMapper;
             description ??= type.GetCustomAttribute<DescriptionAttribute>()?.Description;
         }
 
-        if (TryGetNullableElement(type, out Type? nullableElementType))
+        if (Nullable.GetUnderlyingType(type) is Type nullableElementType)
         {
             // Nullable<T> types must be handled separately
             JsonTypeInfo nullableElementTypeInfo = typeInfo.Options.GetTypeInfo(nullableElementType);
@@ -546,7 +546,8 @@ namespace JsonSchemaMapper;
         if (parameter.HasDefaultValue)
         {
             // Append the default value to the description.
-            defaultValue = JsonSerializer.SerializeToNode(parameter.DefaultValue, parameterTypeInfo);
+            object? defaultVal = parameter.GetNormalizedDefaultValue();
+            defaultValue = JsonSerializer.SerializeToNode(defaultVal, parameterTypeInfo);
             hasDefaultValue = true;
         }
         else if (state.Configuration.RequireConstructorParameters)

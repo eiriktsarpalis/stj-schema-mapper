@@ -439,6 +439,26 @@ internal static partial class TestTypes
             }
             """);
 
+        yield return new TestData<PocoWithOptionalConstructorParams>(
+            Value: new(),
+            ExpectedJsonSchema: """
+            {
+                "type": "object",
+                "properties": {
+                    "X1": {"type":"string", "default": "str" },
+                    "X2": {"type":"integer", "default": 42 },
+                    "X3": {"type":"boolean", "default": true },
+                    "X4": {"type":"number", "default": 0 },
+                    "X5": {"enum":["A","B","C"], "default": "A" },
+                    "X6": {"type":["string","null"], "default": "str" },
+                    "X7": {"type":["integer","null"], "default": 42 },
+                    "X8": {"type":["boolean","null"], "default": true },
+                    "X9": {"type":["number","null"], "default": 0 },
+                    "X10": {"enum":["A","B","C", null], "default": "A" }
+                }
+            }
+            """);
+
         yield return new TestData<GenericPocoWithNullableConstructorParameter<string>>(
             Value: new(null!),
             ExpectedJsonSchema: """
@@ -819,6 +839,23 @@ internal static partial class TestTypes
         public string Value { get; } = value!;
     }
 
+    public class PocoWithOptionalConstructorParams(
+        string x1 = "str", int x2 = 42, bool x3 = true, double x4 = 0, StringEnum x5 = StringEnum.A,
+        string? x6 = "str", int? x7 = 42, bool? x8 = true, double? x9 = 0, StringEnum? x10 = StringEnum.A)
+    {
+        public string X1 { get; } = x1;
+        public int X2 { get; } = x2;
+        public bool X3 { get; } = x3;
+        public double X4 { get; } = x4;
+        public StringEnum X5 { get; } = x5;
+
+        public string? X6 { get; } = x6;
+        public int? X7 { get; } = x7;
+        public bool? X8 { get; } = x8;
+        public double? X9 { get; } = x9;
+        public StringEnum? X10 { get; } = x10;
+    }
+
     // Regression test for https://github.com/dotnet/runtime/issues/92487
     public class GenericPocoWithNullableConstructorParameter<T>(T value)
     {
@@ -971,6 +1008,7 @@ internal static partial class TestTypes
     [JsonSerializable(typeof(PocoWithNullableAnnotationAttributes))]
     [JsonSerializable(typeof(PocoWithNullableAnnotationAttributesOnConstructorParams))]
     [JsonSerializable(typeof(PocoWithNullableConstructorParameter))]
+    [JsonSerializable(typeof(PocoWithOptionalConstructorParams))]
     [JsonSerializable(typeof(GenericPocoWithNullableConstructorParameter<string>))]
     [JsonSerializable(typeof(PocoWithPolymorphism))]
     [JsonSerializable(typeof(PocoCombiningPolymorphicTypeAndDerivedTypes))]
