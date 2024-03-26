@@ -20,7 +20,7 @@ namespace JsonSchemaMapper;
 /// Maps .NET types to JSON schema objects using contract metadata from <see cref="JsonTypeInfo"/> instances.
 /// </summary>
 #if EXPOSE_JSON_SCHEMA_MAPPER
-    public
+public
 #else
     internal
 #endif
@@ -151,6 +151,19 @@ namespace JsonSchemaMapper;
 
         var state = new GenerationState(configuration ?? JsonSchemaMapperConfiguration.Default);
         return MapJsonSchemaCore(typeInfo, ref state);
+    }
+
+    /// <summary>
+    /// Renders the specified <see cref="JsonNode"/> instance as a JSON string.
+    /// </summary>
+    /// <param name="node">The node to serialize.</param>
+    /// <param name="writeIndented">Whether to indent the resultant JSON text.</param>
+    /// <returns>The JSON node rendered as a JSON string.</returns>
+    public static string ToJsonString(this JsonNode? node, bool writeIndented = false)
+    {
+        return node is null
+            ? "null"
+            : node.ToJsonString(writeIndented ? new JsonSerializerOptions { WriteIndented = true } : null);
     }
 
     private static JsonObject MapJsonSchemaCore(

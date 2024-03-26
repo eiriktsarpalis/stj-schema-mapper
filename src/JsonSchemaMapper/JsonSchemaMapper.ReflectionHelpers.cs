@@ -56,7 +56,7 @@ namespace JsonSchemaMapper;
 
     // Uses reflection to determine any custom converters specified for the element of a nullable type.
 #if NETCOREAPP
-    [UnconditionalSuppressMessage("Trimming", "IL2075:'this' argument does not satisfy 'DynamicallyAccessedMembersAttribute' in call to target method. The return value of the source method does not have matching annotations.",
+    [UnconditionalSuppressMessage("Trimming", "IL2026",
         Justification = "We're resolving private fields of the built-in Nullable converter which cannot have been trimmed away.")]
 #endif
     private static JsonConverter? ExtractCustomNullableConverter(JsonConverter? converter)
@@ -65,10 +65,10 @@ namespace JsonSchemaMapper;
 
         // There is unfortunately no way in which we can obtain the element converter from a nullable converter without resorting to private reflection
         // https://github.com/dotnet/runtime/blob/5fda47434cecc590095e9aef3c4e560b7b7ebb47/src/libraries/System.Text.Json/src/System/Text/Json/Serialization/Converters/Value/NullableConverter.cs#L15-L17
-        if (converter != null && converter.GetType().Name == "NullableConverter`1")
+        Type? converterType = converter?.GetType();
+        if (converterType?.Name == "NullableConverter`1")
         {
-            FieldInfo? elementConverterField = converter.GetType().GetField("_elementConverter", BindingFlags.Instance | BindingFlags.NonPublic);
-            Debug.Assert(elementConverterField != null);
+            FieldInfo elementConverterField = converterType.GetPrivateFieldWithPotentiallyTrimmedMetadata("_elementConverter");
             return (JsonConverter)elementConverterField!.GetValue(converter)!;
         }
 
@@ -78,7 +78,7 @@ namespace JsonSchemaMapper;
     // Uses reflection to determine serialization configuration for enum types
     // cf. https://github.com/dotnet/runtime/blob/5fda47434cecc590095e9aef3c4e560b7b7ebb47/src/libraries/System.Text.Json/src/System/Text/Json/Serialization/Converters/Value/EnumConverter.cs#L23-L25
 #if NETCOREAPP
-    [UnconditionalSuppressMessage("Trimming", "IL2075:'this' argument does not satisfy 'DynamicallyAccessedMembersAttribute' in call to target method. The return value of the source method does not have matching annotations.",
+    [UnconditionalSuppressMessage("Trimming", "IL2026",
         Justification = "We're resolving private fields of the built-in enum converter which cannot have been trimmed away.")]
 #endif
     private static bool TryGetStringEnumConverterValues(JsonTypeInfo typeInfo, JsonConverter converter, out JsonArray? values)
@@ -90,10 +90,9 @@ namespace JsonSchemaMapper;
             converter = factory.CreateConverter(typeInfo.Type, typeInfo.Options)!;
         }
 
-        FieldInfo? converterOptionsField = converter.GetType().GetField("_converterOptions", BindingFlags.Instance | BindingFlags.NonPublic);
-        FieldInfo? namingPolicyField = converter.GetType().GetField("_namingPolicy", BindingFlags.Instance | BindingFlags.NonPublic);
-        Debug.Assert(converterOptionsField != null);
-        Debug.Assert(namingPolicyField != null);
+        Type converterType = converter.GetType();
+        FieldInfo converterOptionsField = converterType.GetPrivateFieldWithPotentiallyTrimmedMetadata("_converterOptions");
+        FieldInfo namingPolicyField = converterType.GetPrivateFieldWithPotentiallyTrimmedMetadata("_namingPolicy");
 
         const int EnumConverterOptionsAllowStrings = 1;
         var converterOptions = (int)converterOptionsField!.GetValue(converter)!;
@@ -121,6 +120,22 @@ namespace JsonSchemaMapper;
 
         values = null;
         return false;
+    }
+
+#if NETCOREAPP
+    [RequiresUnreferencedCode("Resolves unreferenced member metadata.")]
+#endif
+    private static FieldInfo GetPrivateFieldWithPotentiallyTrimmedMetadata(this Type type, string fieldName)
+    {
+        FieldInfo? field = type.GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+        if (field is null)
+        {
+            throw new InvalidOperationException(
+                $"Could not resolve metadata for field '{fieldName}' in type '{type}'. " +
+                "If running Native AOT ensure that the 'IlcTrimMetadata' property has been disabled.");
+        }
+
+        return field;
     }
 
     // Resolves the parameters of the deserialization constructor for a type, if they exist.
