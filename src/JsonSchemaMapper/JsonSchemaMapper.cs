@@ -53,9 +53,10 @@ public
         }
 
         ValidateOptions(options);
+        configuration ??= JsonSchemaMapperConfiguration.Default;
 
         JsonTypeInfo typeInfo = options.GetTypeInfo(type);
-        var state = new GenerationState(configuration ?? JsonSchemaMapperConfiguration.Default);
+        var state = new GenerationState(configuration);
         return MapJsonSchemaCore(typeInfo, ref state);
     }
 
@@ -246,7 +247,7 @@ public
             // will include an "anyOf" property with the schemas for all derived types.
 
             string typeDiscriminatorKey = polyOptions.TypeDiscriminatorPropertyName;
-            var derivedTypes = polyOptions.DerivedTypes.ToList();
+            List<JsonDerivedType> derivedTypes = polyOptions.DerivedTypes.ToList();
 
             if (!type.IsAbstract && derivedTypes.Any(derived => derived.DerivedType == type))
             {
@@ -264,9 +265,9 @@ public
                 Debug.Assert(derivedType.TypeDiscriminator is null or int or string);
                 JsonNode? typeDiscriminatorPropertySchema = derivedType.TypeDiscriminator switch
                 {
-                    null => null,
+                    string stringId => new JsonObject { [ConstPropertyName] = (JsonNode)stringId },
                     int intId => new JsonObject { [ConstPropertyName] = (JsonNode)intId },
-                    object stringId => new JsonObject { [ConstPropertyName] = (JsonNode)(string)stringId }
+                    _ => null,
                 };
 
                 JsonTypeInfo derivedTypeInfo = typeInfo.Options.GetTypeInfo(derivedType.DerivedType);
