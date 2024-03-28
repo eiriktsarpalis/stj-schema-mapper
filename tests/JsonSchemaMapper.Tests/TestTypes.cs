@@ -46,15 +46,30 @@ internal static partial class TestTypes
 #endif
         yield return new TestData<string>("I am a string");
         yield return new TestData<char>('c', ExpectedJsonSchema: """{"type":"string"}""");
-        yield return new TestData<byte[]>([1, 2, 3], ExpectedJsonSchema: """{"type":"string"}""");
+        yield return new TestData<byte[]>(
+            Value: [1, 2, 3], 
+            AdditionalValues: [[]],
+            ExpectedJsonSchema: """{"type":"string"}""");
+
         yield return new TestData<Memory<byte>>(new byte[] { 1, 2, 3 }, ExpectedJsonSchema: """{"type":"string"}""");
         yield return new TestData<ReadOnlyMemory<byte>>(new byte[] { 1, 2, 3 }, ExpectedJsonSchema: """{"type":"string"}""");
-        yield return new TestData<DateTime>(new(2021, 1, 1));
-        yield return new TestData<DateTimeOffset>(new(new DateTime(2021, 1, 1), TimeSpan.Zero), ExpectedJsonSchema: """{"type":"string","format": "date-time"}""");
-        yield return new TestData<TimeSpan>(new(1, 2, 3, 4, 5), ExpectedJsonSchema: """{"type":"string","format": "time"}""");
+        yield return new TestData<DateTime>(
+            Value: new(2021, 1, 1),
+            AdditionalValues: [DateTime.MinValue, DateTime.MaxValue]);
+
+        yield return new TestData<DateTimeOffset>(
+            Value: new(new DateTime(2021, 1, 1), TimeSpan.Zero), 
+            AdditionalValues: [DateTimeOffset.MinValue, DateTimeOffset.MaxValue],
+            ExpectedJsonSchema: """{"type":"string","format": "date-time"}""");
+
+        yield return new TestData<TimeSpan>(
+            Value: new(hours: 5, minutes: 13, seconds: 3),
+            AdditionalValues: [TimeSpan.MinValue, TimeSpan.MaxValue],
+            ExpectedJsonSchema: """{"type":"string", "pattern": "^-?(\\d+\\.)*\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,7})?$"}""");
+
 #if NET6_0_OR_GREATER
         yield return new TestData<DateOnly>(new(2021, 1, 1), ExpectedJsonSchema: """{"type":"string","format": "date"}""");
-        yield return new TestData<TimeOnly>(new(22, 30, 33, 100), ExpectedJsonSchema: """{"type":"string","format": "time"}""");
+        yield return new TestData<TimeOnly>(new(hour: 22, minute: 30, second: 33, millisecond: 100), ExpectedJsonSchema: """{"type":"string","format": "time"}""");
 #endif
         yield return new TestData<Guid>(Guid.Empty);
         yield return new TestData<Uri>(new("http://example.com"));

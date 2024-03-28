@@ -232,6 +232,7 @@ public
 
         JsonSchemaType schemaType = JsonSchemaType.Any;
         string? format = null;
+        string? pattern = null;
         JsonObject? properties = null;
         JsonArray? requiredProperties = null;
         JsonObject? arrayItems = null;
@@ -287,10 +288,11 @@ public
         switch (typeInfo.Kind)
         {
             case JsonTypeInfoKind.None:
-                if (s_simpleTypeInfo.TryGetValue(type, out var simpleTypeInfo))
+                if (s_simpleTypeInfo.TryGetValue(type, out SimpleTypeJsonSchema simpleTypeInfo))
                 {
                     schemaType = simpleTypeInfo.SchemaType;
                     format = simpleTypeInfo.Format;
+                    pattern = simpleTypeInfo.Pattern;
 
                     if (effectiveNumberHandling is JsonNumberHandling numberHandling &&
                         schemaType is JsonSchemaType.Integer or JsonSchemaType.Number)
@@ -522,6 +524,7 @@ public
             description,
             schemaType,
             format,
+            pattern,
             properties,
             requiredProperties,
             arrayItems,
@@ -656,6 +659,7 @@ public
         string? description = null,
         JsonSchemaType schemaType = JsonSchemaType.Any,
         string? format = null,
+        string? pattern = null,
         JsonObject? properties = null,
         JsonArray? requiredProperties = null,
         JsonObject? arrayItems = null,
@@ -690,6 +694,11 @@ public
         if (format is not null)
         {
             schema.Add(FormatPropertyName, format);
+        }
+
+        if (pattern is not null)
+        {
+            schema.Add(PatternPropertyName, pattern);
         }
 
         if (properties is not null)
@@ -791,6 +800,7 @@ public
     private const string DescriptionPropertyName = "description";
     private const string TypePropertyName = "type";
     private const string FormatPropertyName = "format";
+    private const string PatternPropertyName = "pattern";
     private const string PropertiesPropertyName = "properties";
     private const string RequiredPropertyName = "required";
     private const string ItemsPropertyName = "items";
@@ -801,49 +811,65 @@ public
     private const string DefaultPropertyName = "default";
     private const string StjValuesMetadataProperty = "$values";
 
-    private static readonly Dictionary<Type, (JsonSchemaType SchemaType, string? Format)> s_simpleTypeInfo = new()
+    private readonly struct SimpleTypeJsonSchema
     {
-        [typeof(object)] = (JsonSchemaType.Any, null),
-        [typeof(bool)] = (JsonSchemaType.Boolean, null),
-        [typeof(byte)] = (JsonSchemaType.Integer, null),
-        [typeof(ushort)] = (JsonSchemaType.Integer, null),
-        [typeof(uint)] = (JsonSchemaType.Integer, null),
-        [typeof(ulong)] = (JsonSchemaType.Integer, null),
-        [typeof(sbyte)] = (JsonSchemaType.Integer, null),
-        [typeof(short)] = (JsonSchemaType.Integer, null),
-        [typeof(int)] = (JsonSchemaType.Integer, null),
-        [typeof(long)] = (JsonSchemaType.Integer, null),
-        [typeof(float)] = (JsonSchemaType.Number, null),
-        [typeof(double)] = (JsonSchemaType.Number, null),
-        [typeof(decimal)] = (JsonSchemaType.Number, null),
+        public SimpleTypeJsonSchema(JsonSchemaType schemaType, string? format = null, string? pattern = null)
+        {
+            SchemaType = schemaType;
+            Format = format;
+            Pattern = pattern;
+        }
+
+        public JsonSchemaType SchemaType { get; }
+        public string? Format { get; }
+        public string? Pattern { get; }
+    }
+
+    private static readonly Dictionary<Type, SimpleTypeJsonSchema> s_simpleTypeInfo = new()
+    {
+        [typeof(object)] = new(JsonSchemaType.Any),
+        [typeof(bool)] = new(JsonSchemaType.Boolean),
+        [typeof(byte)] = new(JsonSchemaType.Integer),
+        [typeof(ushort)] = new(JsonSchemaType.Integer),
+        [typeof(uint)] = new(JsonSchemaType.Integer),
+        [typeof(ulong)] = new(JsonSchemaType.Integer),
+        [typeof(sbyte)] = new(JsonSchemaType.Integer),
+        [typeof(short)] = new(JsonSchemaType.Integer),
+        [typeof(int)] = new(JsonSchemaType.Integer),
+        [typeof(long)] = new(JsonSchemaType.Integer),
+        [typeof(float)] = new(JsonSchemaType.Number),
+        [typeof(double)] = new(JsonSchemaType.Number),
+        [typeof(decimal)] = new(JsonSchemaType.Number),
 #if NET6_0_OR_GREATER
-        [typeof(Half)] = (JsonSchemaType.Number, null),
+        [typeof(Half)] = new(JsonSchemaType.Number),
 #endif
 #if NET7_0_OR_GREATER
-        [typeof(UInt128)] = (JsonSchemaType.Integer, null),
-        [typeof(Int128)] = (JsonSchemaType.Integer, null),
+        [typeof(UInt128)] = new(JsonSchemaType.Integer),
+        [typeof(Int128)] = new(JsonSchemaType.Integer),
 #endif
-        [typeof(char)] = (JsonSchemaType.String, null),
-        [typeof(string)] = (JsonSchemaType.String, null),
-        [typeof(byte[])] = (JsonSchemaType.String, null),
-        [typeof(Memory<byte>)] = (JsonSchemaType.String, null),
-        [typeof(ReadOnlyMemory<byte>)] = (JsonSchemaType.String, null),
-        [typeof(DateTime)] = (JsonSchemaType.String, Format: "date-time"),
-        [typeof(DateTimeOffset)] = (JsonSchemaType.String, Format: "date-time"),
-        [typeof(TimeSpan)] = (JsonSchemaType.String, Format: "time"),
+        [typeof(char)] = new(JsonSchemaType.String),
+        [typeof(string)] = new(JsonSchemaType.String),
+        [typeof(byte[])] = new(JsonSchemaType.String),
+        [typeof(Memory<byte>)] = new(JsonSchemaType.String),
+        [typeof(ReadOnlyMemory<byte>)] = new(JsonSchemaType.String),
+        [typeof(DateTime)] = new(JsonSchemaType.String, format: "date-time"),
+        [typeof(DateTimeOffset)] = new(JsonSchemaType.String, format: "date-time"),
+
+        // TimeSpan is represented as a string in the format "[-][d.]hh:mm:ss[.fffffff]".
+        [typeof(TimeSpan)] = new(JsonSchemaType.String, pattern: @"^-?(\d+\.)*\d{2}:\d{2}:\d{2}(\.\d{1,7})?$"),
 #if NET6_0_OR_GREATER
-        [typeof(DateOnly)] = (JsonSchemaType.String, Format: "date"),
-        [typeof(TimeOnly)] = (JsonSchemaType.String, Format: "time"),
+        [typeof(DateOnly)] = new(JsonSchemaType.String, format: "date"),
+        [typeof(TimeOnly)] = new(JsonSchemaType.String, format: "time"),
 #endif
-        [typeof(Guid)] = (JsonSchemaType.String, Format: "uuid"),
-        [typeof(Uri)] = (JsonSchemaType.String, Format: "uri"),
-        [typeof(Version)] = (JsonSchemaType.String, null),
-        [typeof(JsonDocument)] = (JsonSchemaType.Any, null),
-        [typeof(JsonElement)] = (JsonSchemaType.Any, null),
-        [typeof(JsonNode)] = (JsonSchemaType.Any, null),
-        [typeof(JsonValue)] = (JsonSchemaType.Any, null),
-        [typeof(JsonObject)] = (JsonSchemaType.Object, null),
-        [typeof(JsonArray)] = (JsonSchemaType.Array, null),
+        [typeof(Guid)] = new(JsonSchemaType.String, format: "uuid"),
+        [typeof(Uri)] = new(JsonSchemaType.String, format: "uri"),
+        [typeof(Version)] = new(JsonSchemaType.String),
+        [typeof(JsonDocument)] = new(JsonSchemaType.Any),
+        [typeof(JsonElement)] = new(JsonSchemaType.Any),
+        [typeof(JsonNode)] = new(JsonSchemaType.Any),
+        [typeof(JsonValue)] = new(JsonSchemaType.Any),
+        [typeof(JsonObject)] = new(JsonSchemaType.Object),
+        [typeof(JsonArray)] = new(JsonSchemaType.Array),
     };
 
     private static void ValidateOptions(JsonSerializerOptions options)
