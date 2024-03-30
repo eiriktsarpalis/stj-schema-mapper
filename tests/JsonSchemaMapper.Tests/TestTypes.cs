@@ -65,7 +65,7 @@ internal static partial class TestTypes
         yield return new TestData<TimeSpan>(
             Value: new(hours: 5, minutes: 13, seconds: 3),
             AdditionalValues: [TimeSpan.MinValue, TimeSpan.MaxValue],
-            ExpectedJsonSchema: """{"type":"string", "pattern": "^-?(\\d+\\.)*\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,7})?$"}""");
+            ExpectedJsonSchema: """{"type":"string", "pattern": "^-?(\\d+\\.)?\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,7})?$"}""");
 
 #if NET6_0_OR_GREATER
         yield return new TestData<DateOnly>(new(2021, 1, 1), ExpectedJsonSchema: """{"type":"string","format": "date"}""");

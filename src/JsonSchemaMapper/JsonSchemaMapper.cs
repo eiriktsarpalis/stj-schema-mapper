@@ -20,7 +20,7 @@ namespace JsonSchemaMapper;
 /// Maps .NET types to JSON schema objects using contract metadata from <see cref="JsonTypeInfo"/> instances.
 /// </summary>
 #if EXPOSE_JSON_SCHEMA_MAPPER
-public
+    public
 #else
     internal
 #endif
@@ -857,7 +857,7 @@ public
         [typeof(DateTimeOffset)] = new(JsonSchemaType.String, format: "date-time"),
 
         // TimeSpan is represented as a string in the format "[-][d.]hh:mm:ss[.fffffff]".
-        [typeof(TimeSpan)] = new(JsonSchemaType.String, pattern: @"^-?(\d+\.)*\d{2}:\d{2}:\d{2}(\.\d{1,7})?$"),
+        [typeof(TimeSpan)] = new(JsonSchemaType.String, pattern: @"^-?(\d+\.)?\d{2}:\d{2}:\d{2}(\.\d{1,7})?$"),
 #if NET6_0_OR_GREATER
         [typeof(DateOnly)] = new(JsonSchemaType.String, format: "date"),
         [typeof(TimeOnly)] = new(JsonSchemaType.String, format: "time"),
