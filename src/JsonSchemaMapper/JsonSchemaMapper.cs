@@ -864,7 +864,7 @@ namespace JsonSchemaMapper;
 #endif
         [typeof(Guid)] = new(JsonSchemaType.String, format: "uuid"),
         [typeof(Uri)] = new(JsonSchemaType.String, format: "uri"),
-        [typeof(Version)] = new(JsonSchemaType.String),
+        [typeof(Version)] = new(JsonSchemaType.String, format: @"^\d+(\.\d+){1,3}$"),
         [typeof(JsonDocument)] = new(JsonSchemaType.Any),
         [typeof(JsonElement)] = new(JsonSchemaType.Any),
         [typeof(JsonNode)] = new(JsonSchemaType.Any),

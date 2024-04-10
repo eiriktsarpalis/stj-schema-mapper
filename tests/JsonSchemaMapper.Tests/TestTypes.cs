@@ -73,7 +73,7 @@ internal static partial class TestTypes
 #endif
         yield return new TestData<Guid>(Guid.Empty);
         yield return new TestData<Uri>(new("http://example.com"));
-        yield return new TestData<Version>(new(1, 2, 3, 4), ExpectedJsonSchema: """{"type":"string"}""");
+        yield return new TestData<Version>(new(1, 2, 3, 4), ExpectedJsonSchema: """{"type":"string","format":"^\\d+(\\.\\d+){1,3}$"}""");
         yield return new TestData<JsonDocument>(JsonDocument.Parse("""[{ "x" : 42 }]"""), ExpectedJsonSchema: "{}");
         yield return new TestData<JsonElement>(JsonDocument.Parse("""[{ "x" : 42 }]""").RootElement, ExpectedJsonSchema: "{}");
         yield return new TestData<JsonNode>(JsonNode.Parse("""[{ "x" : 42 }]"""));
