@@ -7,9 +7,9 @@ namespace JsonSchemaMapper;
 /// Controls the nullable behavior of reference types in the generated schema.
 /// </summary>
 #if EXPOSE_JSON_SCHEMA_MAPPER
-    public
+public
 #else
-    internal
+internal
 #endif
     enum ReferenceTypeNullability
 {

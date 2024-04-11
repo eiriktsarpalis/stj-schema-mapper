@@ -15,9 +15,9 @@ using System.Text.Json.Serialization.Metadata;
 namespace JsonSchemaMapper;
 
 #if EXPOSE_JSON_SCHEMA_MAPPER
-    public
+public
 #else
-    internal
+internal
 #endif
     static partial class JsonSchemaMapper
 {

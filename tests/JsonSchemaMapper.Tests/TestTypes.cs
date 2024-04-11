@@ -247,7 +247,8 @@ internal static partial class TestTypes
                     { "enum": ["NaN", "Infinity", "-Infinity"]}
                   ]
                 },
-                "Z": { "type": ["string", "integer"] }
+                "Z": { "type": ["string", "integer"] },
+                "W" : { "type": "number" }
               }
             }
             """);
@@ -546,6 +547,22 @@ internal static partial class TestTypes
             }
             """);
 
+        yield return new TestData<NonAbstractClassWithSingleDerivedType>(
+            Value: new NonAbstractClassWithSingleDerivedType(),
+            AdditionalValues: [new NonAbstractClassWithSingleDerivedType.Derived()],
+            ExpectedJsonSchema: """
+            {
+                "anyOf": [
+                    {
+                        "type": "object"
+                    },
+                    {
+                        "type": "object"
+                    }
+                ]
+            }
+            """);
+
         yield return new TestData<PocoCombiningPolymorphicTypeAndDerivedTypes>(
             Value: new(),
             ExpectedJsonSchema: """
@@ -735,6 +752,9 @@ internal static partial class TestTypes
 
         [JsonNumberHandling(JsonNumberHandling.WriteAsString)]
         public int Z { get; set; }
+
+        [JsonNumberHandling(JsonNumberHandling.AllowNamedFloatingPointLiterals)]
+        public decimal W { get; set; }
     }
 
     public class PocoWithRecursiveMembers
@@ -921,6 +941,12 @@ internal static partial class TestTypes
         }
     }
 
+    [JsonDerivedType(typeof(NonAbstractClassWithSingleDerivedType.Derived))]
+    public class NonAbstractClassWithSingleDerivedType
+    {
+        public class Derived : NonAbstractClassWithSingleDerivedType;
+    }
+
     public class PocoCombiningPolymorphicTypeAndDerivedTypes
     {
         public PocoWithPolymorphism PolymorphicValue { get; set; } = new PocoWithPolymorphism.DerivedPocoNoDiscriminator { DerivedValue = "derived" };
@@ -1026,6 +1052,7 @@ internal static partial class TestTypes
     [JsonSerializable(typeof(PocoWithOptionalConstructorParams))]
     [JsonSerializable(typeof(GenericPocoWithNullableConstructorParameter<string>))]
     [JsonSerializable(typeof(PocoWithPolymorphism))]
+    [JsonSerializable(typeof(NonAbstractClassWithSingleDerivedType))]
     [JsonSerializable(typeof(PocoCombiningPolymorphicTypeAndDerivedTypes))]
     // Collection types
     [JsonSerializable(typeof(int[]))]
