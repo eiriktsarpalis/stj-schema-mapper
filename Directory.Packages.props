@@ -19,5 +19,6 @@
     <PackageVersion Include="JsonSchema.Net" Version="[6.0.5]" />
     <PackageVersion Include="JsonSchema.Net.Generation" Version="[4.1.1]" />
     <PackageVersion Include="System.Collections.Immutable" Version="8.0.0" />
+    <PackageVersion Include="System.ComponentModel.Annotations" Version="5.0.0" />
   </ItemGroup>
 </Project>

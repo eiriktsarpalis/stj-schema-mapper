@@ -170,8 +170,9 @@ internal
     private static JsonObject MapJsonSchemaCore(
         ref GenerationState state,
         JsonTypeInfo typeInfo,
-        JsonPropertyInfo? propertyInfo = null,
-        ParameterInfo? parameterInfo = null,
+        Type? parentType = null,
+        JsonPropertyInfo? parentPropertyInfo = null,
+        ParameterInfo? parentParameterInfo = null,
         string? description = null,
         bool isNullableReferenceType = false,
         bool isNullableOfTElement = false,
@@ -207,6 +208,7 @@ internal
             description ??= type.GetCustomAttribute<DescriptionAttribute>()?.Description;
         }
 
+        JsonObject schema;
         JsonSchemaType schemaType = JsonSchemaType.Any;
         string? format = null;
         string? pattern = null;
@@ -227,15 +229,21 @@ internal
         {
             JsonTypeInfo? nullableElementTypeInfo = typeInfo.Options.GetTypeInfo(nullableElementType);
             customConverter = ExtractCustomNullableConverter(customConverter);
-            return MapJsonSchemaCore(
+            schema = MapJsonSchemaCore(
                 ref state,
                 nullableElementTypeInfo,
+                parentType,
+                parentPropertyInfo,
+                parentParameterInfo,
                 description: description,
                 hasDefaultValue: hasDefaultValue,
                 defaultValue: defaultValue,
                 customNumberHandling: effectiveNumberHandling,
                 customConverter: customConverter,
                 isNullableOfTElement: true);
+
+            state.HandleGenerationCallback(schema, typeInfo, parentType, parentPropertyInfo, parentParameterInfo);
+            return schema;
         }
 
         if (parentPolymorphicType is null && typeInfo.PolymorphismOptions is { DerivedTypes.Count: > 0 } polyOptions)
@@ -383,7 +391,7 @@ internal
 
                     // Only resolve the attribute provider if needed.
                     ICustomAttributeProvider? attributeProvider = state.Configuration.ResolveDescriptionAttributes || nullabilityCtx != null
-                        ? ResolveAttributeProvider(typeInfo, property)
+                        ? ResolveAttributeProvider(typeInfo.Type, property)
                         : null;
 
                     // Resolve property-level description attributes.
@@ -400,11 +408,12 @@ internal
                     bool propertyHasDefaultValue = false;
                     JsonNode? propertyDefaultValue = null;
 
-                    if (parameterInfoMapper(property) is ParameterInfo ctorParam)
+                    ParameterInfo? ctorParameterInfo = parameterInfoMapper(property);
+                    if (ctorParameterInfo != null)
                     {
                         ResolveParameterInfo(
                             ref state,
-                            ctorParam,
+                            ctorParameterInfo,
                             propertyTypeInfo,
                             ref propertyDescription,
                             ref propertyHasDefaultValue,
@@ -417,8 +426,9 @@ internal
                     JsonObject propertySchema = MapJsonSchemaCore(
                         ref state,
                         propertyTypeInfo,
-                        propertyInfo,
-                        parameterInfo,
+                        parentType: type,
+                        property,
+                        ctorParameterInfo,
                         description: propertyDescription,
                         isNullableReferenceType: isPropertyNullableReferenceType,
                         customConverter: property.CustomConverter,
@@ -465,7 +475,7 @@ internal
                     state.Push(PropertiesPropertyName);
                     state.Push(StjValuesMetadataProperty);
                     state.Push(ItemsPropertyName);
-                    JsonObject elementSchema = MapJsonSchemaCore(ref state, elementTypeInfo);
+                    JsonObject elementSchema = MapJsonSchemaCore(ref state, elementTypeInfo, parentType, parentPropertyInfo, parentParameterInfo);
                     state.Pop();
                     state.Pop();
                     state.Pop();
@@ -493,7 +503,7 @@ internal
                 }
 
                 state.Push(AdditionalPropertiesPropertyName);
-                additionalProperties = MapJsonSchemaCore(ref state, valueTypeInfo);
+                additionalProperties = MapJsonSchemaCore(ref state, valueTypeInfo, parentType, parentPropertyInfo, parentParameterInfo);
                 state.Pop();
                 break;
 
@@ -515,7 +525,7 @@ internal
         }
 
     ConstructSchemaDocument:
-        return CreateSchemaDocument(
+        schema = CreateSchemaDocument(
             ref state,
             description: description,
             schemaType: schemaType,
@@ -529,6 +539,9 @@ internal
             anyOfSchema: anyOfSchema,
             hasDefaultValue: hasDefaultValue,
             defaultValue: defaultValue);
+
+        state.HandleGenerationCallback(schema, typeInfo, parentType, parentPropertyInfo, parentParameterInfo);
+        return schema;
     }
 
     private static void ResolveParameterInfo(
@@ -649,6 +662,15 @@ internal
             }
 
             return null;
+        }
+
+        public readonly void HandleGenerationCallback(JsonObject schema, JsonTypeInfo typeInfo, Type? parentType, JsonPropertyInfo? propertyInfo, ParameterInfo? parameterInfo)
+        {
+            if (Configuration.OnSchemaGenerated is { } callback)
+            {
+                var ctx = new JsonSchemaGenerationContext(typeInfo, parentType, propertyInfo, parameterInfo);
+                callback(ctx, schema);
+            }
         }
     }
 

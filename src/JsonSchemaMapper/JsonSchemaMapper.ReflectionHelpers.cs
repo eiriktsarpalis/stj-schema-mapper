@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -34,25 +35,35 @@ internal
     // Work around the issue by running a query for the relevant MemberInfo using the internal MemberName property
     // https://github.com/dotnet/runtime/blob/de774ff9ee1a2c06663ab35be34b755cd8d29731/src/libraries/System.Text.Json/src/System/Text/Json/Serialization/Metadata/JsonPropertyInfo.cs#L206
 #if NETCOREAPP
+    [EditorBrowsable(EditorBrowsableState.Never)]
     [UnconditionalSuppressMessage("Trimming", "IL2075:'this' argument does not satisfy 'DynamicallyAccessedMembersAttribute' in call to target method. The return value of the source method does not have matching annotations.",
         Justification = "We're reading the internal JsonPropertyInfo.MemberName which cannot have been trimmed away.")]
+    [UnconditionalSuppressMessage("Trimming", "IL2070:'this' argument does not satisfy 'DynamicallyAccessedMembersAttribute' in call to target method. The parameter of method does not have matching annotations.",
+        Justification = "We're reading the member which is already accessed by the source generator.")]
 #endif
-    private static ICustomAttributeProvider? ResolveAttributeProvider(JsonTypeInfo typeInfo, JsonPropertyInfo propertyInfo)
+    internal static ICustomAttributeProvider? ResolveAttributeProvider(Type? declaringType, JsonPropertyInfo? propertyInfo)
     {
+        if (declaringType is null || propertyInfo is null)
+        {
+            return null;
+        }
+
         if (propertyInfo.AttributeProvider is { } provider)
         {
             return provider;
         }
 
-        PropertyInfo memberNameProperty = typeof(JsonPropertyInfo).GetProperty("MemberName", BindingFlags.Instance | BindingFlags.NonPublic)!;
-        var memberName = (string?)memberNameProperty.GetValue(propertyInfo);
+        s_memberNameProperty ??= typeof(JsonPropertyInfo).GetProperty("MemberName", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var memberName = (string?)s_memberNameProperty.GetValue(propertyInfo);
         if (memberName is not null)
         {
-            return typeInfo.Type.GetMember(memberName, MemberTypes.Property | MemberTypes.Field, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).FirstOrDefault();
+            return declaringType.GetMember(memberName, MemberTypes.Property | MemberTypes.Field, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).FirstOrDefault();
         }
 
         return null;
     }
+
+    private static PropertyInfo? s_memberNameProperty;
 
     // Uses reflection to determine any custom converters specified for the element of a nullable type.
 #if NETCOREAPP

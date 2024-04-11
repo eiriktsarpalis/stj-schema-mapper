@@ -3,6 +3,7 @@
 
 using System;
 using System.ComponentModel;
+using System.Text.Json.Nodes;
 
 namespace JsonSchemaMapper;
 
@@ -59,7 +60,7 @@ internal
     public ReferenceTypeNullability ReferenceTypeNullability { get; init; } = ReferenceTypeNullability.Annotated;
 
     /// <summary>
-    /// Dtermines whether properties bound to non-optional constructor parameters should be flagged as required.
+    /// Determines whether properties bound to non-optional constructor parameters should be flagged as required.
     /// </summary>
     /// <remarks>
     /// Defaults to true. Current STJ treats all constructor parameters as optional
@@ -67,6 +68,11 @@ internal
     /// will generate schemas that are more compatible with the actual serialization behavior.
     /// </remarks>
     public bool RequireConstructorParameters { get; init; } = true;
+
+    /// <summary>
+    /// Defines a callback that is invoked for every schema that is generated within the type graph.
+    /// </summary>
+    public Action<JsonSchemaGenerationContext, JsonObject>? OnSchemaGenerated { get; init; }
 
     /// <summary>
     /// Determines the maximum permitted depth when traversing the generated type graph.

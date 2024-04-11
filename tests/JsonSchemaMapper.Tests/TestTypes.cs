@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Immutable;
 using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -629,6 +630,33 @@ internal static partial class TestTypes
             }
             """);
 
+        yield return new TestData<ClassWithComponentModelAttributes>(
+            Value: new("string", -1),
+            ExpectedJsonSchema: """
+            {
+                "type": "object",
+                "properties": {
+                    "StringValue": {"type":"string","pattern":"\\w+"},
+                    "IntValue": {"type":"integer","default":42}
+                },
+                "required": ["StringValue","IntValue"]
+            }
+            """,
+            Configuration: new()
+            {
+                OnSchemaGenerated = static (ctx, schema) =>
+                {
+                    if (ctx.PropertyInfo is null)
+                        return;
+
+                    if (ctx.GetAttribute<DefaultValueAttribute>() is { } attr)
+                        schema["default"] = JsonSerializer.SerializeToNode(attr.Value);
+
+                    if (ctx.GetAttribute<RegularExpressionAttribute>() is { } regexAttr)
+                        schema["pattern"] = regexAttr.Pattern;
+                }
+            });
+
         // Collection types
         yield return new TestData<int[]>([1, 2, 3]);
         yield return new TestData<List<bool>>([false, true, false]);
@@ -954,6 +982,20 @@ internal static partial class TestTypes
         public PocoWithPolymorphism.DerivedPocoStringDiscriminator DerivedValue2 { get; set; } = new() { DerivedValue = "derived" };
     }
 
+    public class ClassWithComponentModelAttributes
+    {
+        public ClassWithComponentModelAttributes(string stringValue, [DefaultValue(42)] int intValue)
+        {
+            StringValue = stringValue;
+            IntValue = intValue;
+        }
+
+        [RegularExpression(@"\w+")]
+        public string StringValue { get; }
+
+        public int IntValue { get; }
+    }
+
     public readonly struct StructDictionary<TKey, TValue>(IEnumerable<KeyValuePair<TKey, TValue>> values)
         : IReadOnlyDictionary<TKey, TValue>
         where TKey : notnull
@@ -1054,6 +1096,7 @@ internal static partial class TestTypes
     [JsonSerializable(typeof(PocoWithPolymorphism))]
     [JsonSerializable(typeof(NonAbstractClassWithSingleDerivedType))]
     [JsonSerializable(typeof(PocoCombiningPolymorphicTypeAndDerivedTypes))]
+    [JsonSerializable(typeof(ClassWithComponentModelAttributes))]
     // Collection types
     [JsonSerializable(typeof(int[]))]
     [JsonSerializable(typeof(List<bool>))]

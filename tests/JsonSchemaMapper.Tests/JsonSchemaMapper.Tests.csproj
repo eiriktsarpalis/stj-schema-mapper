@@ -25,6 +25,7 @@
     <PackageReference Include="JsonSchema.Net" />
     <PackageReference Include="JsonSchema.Net.Generation" />
     <PackageReference Include="System.Collections.Immutable" />
+    <PackageReference Include="System.ComponentModel.Annotations" Condition="'$(TargetFramework)' == 'net481'"/>
   </ItemGroup>
 
   <ItemGroup>
