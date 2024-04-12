@@ -227,7 +227,7 @@ internal
 
         if (Nullable.GetUnderlyingType(type) is Type nullableElementType)
         {
-            JsonTypeInfo? nullableElementTypeInfo = typeInfo.Options.GetTypeInfo(nullableElementType);
+            JsonTypeInfo nullableElementTypeInfo = typeInfo.Options.GetTypeInfo(nullableElementType);
             customConverter = ExtractCustomNullableConverter(customConverter);
             schema = MapJsonSchemaCore(
                 ref state,
