@@ -330,23 +330,15 @@ internal
                 }
                 else if (type.IsEnum)
                 {
-                    if (TryGetStringEnumConverterValues(typeInfo, effectiveConverter, out JsonArray? values))
+                    if (TryGetStringEnumConverterValues(typeInfo, effectiveConverter, out enumValues))
                     {
-                        if (values is null)
-                        {
-                            // enum declared with the flags attribute -- do not surface enum values in the JSON schema.
-                            schemaType = JsonSchemaType.String;
-                        }
-                        else
-                        {
-                            if (isNullableOfTElement)
-                            {
-                                // We're generating the schema for a nullable
-                                // enum type. Append null to the "enum" array.
-                                values.Add(null);
-                            }
+                        schemaType = JsonSchemaType.String;
 
-                            enumValues = values;
+                        if (enumValues != null && isNullableOfTElement)
+                        {
+                            // We're generating the schema for a nullable
+                            // enum type. Append null to the "enum" array.
+                            enumValues.Add(null);
                         }
                     }
                     else
