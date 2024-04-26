@@ -75,7 +75,7 @@ internal static class TestMethods
                     "x2": { "type": "integer" },
                     "x3": { "type": ["string", "null"], "default": null },
                     "x4": { "type": ["integer", "null"], "default" : 42 },
-                    "x5": { "enum": ["A", "B", "C"], "default" : "A" },
+                    "x5": { "type": "string", "enum": ["A", "B", "C"], "default" : "A" },
                     "x6": {
                         "type": ["object","null"],
                         "default" : null,
@@ -104,7 +104,7 @@ internal static class TestMethods
                     "x2": { "description": "x2 description", "type": "integer" },
                     "x3": { "description": "x3 description", "type": ["string", "null"], "default": null },
                     "x4": { "description": "x4 description", "type": ["integer", "null"], "default": 42 },
-                    "x5": { "description": "x5 description", "enum": ["A", "B", "C"], "default": "A" },
+                    "x5": { "description": "x5 description", "type": "string", "enum": ["A", "B", "C"], "default": "A" },
                     "x6": {
                         "description": "x6 description",
                         "type": ["object","null"],
