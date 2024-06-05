@@ -840,6 +840,8 @@ internal
         public bool IsIeeeFloatingPoint { get; }
     }
 
+    private const string Iso8601DateTimeRegex = @"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?$";
+
     private static readonly Dictionary<Type, SimpleTypeJsonSchema> s_simpleTypeInfo = new()
     {
         [typeof(object)] = new(JsonSchemaType.Any),
@@ -867,8 +869,8 @@ internal
         [typeof(byte[])] = new(JsonSchemaType.String),
         [typeof(Memory<byte>)] = new(JsonSchemaType.String),
         [typeof(ReadOnlyMemory<byte>)] = new(JsonSchemaType.String),
-        [typeof(DateTime)] = new(JsonSchemaType.String, format: "date-time"),
-        [typeof(DateTimeOffset)] = new(JsonSchemaType.String, format: "date-time"),
+        [typeof(DateTime)] = new(JsonSchemaType.String, pattern: Iso8601DateTimeRegex),
+        [typeof(DateTimeOffset)] = new(JsonSchemaType.String, pattern: Iso8601DateTimeRegex),
 
         // TimeSpan is represented as a string in the format "[-][d.]hh:mm:ss[.fffffff]".
         [typeof(TimeSpan)] = new(JsonSchemaType.String, pattern: @"^-?(\d+\.)?\d{2}:\d{2}:\d{2}(\.\d{1,7})?$"),
@@ -878,7 +880,7 @@ internal
 #endif
         [typeof(Guid)] = new(JsonSchemaType.String, format: "uuid"),
         [typeof(Uri)] = new(JsonSchemaType.String, format: "uri"),
-        [typeof(Version)] = new(JsonSchemaType.String, format: @"^\d+(\.\d+){1,3}$"),
+        [typeof(Version)] = new(JsonSchemaType.String, pattern: @"^\d+(\.\d+){1,3}$"),
         [typeof(JsonDocument)] = new(JsonSchemaType.Any),
         [typeof(JsonElement)] = new(JsonSchemaType.Any),
         [typeof(JsonNode)] = new(JsonSchemaType.Any),

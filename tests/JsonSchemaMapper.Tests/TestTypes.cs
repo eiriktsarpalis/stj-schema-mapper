@@ -56,12 +56,13 @@ internal static partial class TestTypes
         yield return new TestData<ReadOnlyMemory<byte>>(new byte[] { 1, 2, 3 }, ExpectedJsonSchema: """{"type":"string"}""");
         yield return new TestData<DateTime>(
             Value: new(2021, 1, 1),
-            AdditionalValues: [DateTime.MinValue, DateTime.MaxValue]);
+            AdditionalValues: [DateTime.MinValue, DateTime.MaxValue],
+            ExpectedJsonSchema: """{"type":"string","pattern":"^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d\u002B)?(?:Z|[\u002B-]\\d{2}:\\d{2})?$"}""");
 
         yield return new TestData<DateTimeOffset>(
             Value: new(new DateTime(2021, 1, 1), TimeSpan.Zero), 
             AdditionalValues: [DateTimeOffset.MinValue, DateTimeOffset.MaxValue],
-            ExpectedJsonSchema: """{"type":"string","format": "date-time"}""");
+            ExpectedJsonSchema: """{"type":"string","pattern":"^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d\u002B)?(?:Z|[\u002B-]\\d{2}:\\d{2})?$"}""");
 
         yield return new TestData<TimeSpan>(
             Value: new(hours: 5, minutes: 13, seconds: 3),
@@ -74,7 +75,7 @@ internal static partial class TestTypes
 #endif
         yield return new TestData<Guid>(Guid.Empty);
         yield return new TestData<Uri>(new("http://example.com"));
-        yield return new TestData<Version>(new(1, 2, 3, 4), ExpectedJsonSchema: """{"type":"string","format":"^\\d+(\\.\\d+){1,3}$"}""");
+        yield return new TestData<Version>(new(1, 2, 3, 4), ExpectedJsonSchema: """{"type":"string","pattern":"^\\d+(\\.\\d+){1,3}$"}""");
         yield return new TestData<JsonDocument>(JsonDocument.Parse("""[{ "x" : 42 }]"""), ExpectedJsonSchema: "{}");
         yield return new TestData<JsonElement>(JsonDocument.Parse("""[{ "x" : 42 }]""").RootElement, ExpectedJsonSchema: "{}");
         yield return new TestData<JsonNode>(JsonNode.Parse("""[{ "x" : 42 }]"""));
