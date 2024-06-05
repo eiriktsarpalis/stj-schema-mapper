@@ -70,7 +70,11 @@ internal static partial class Helpers
     private static EvaluationResults EvaluateSchemaCore(JsonNode schema, JsonNode? instance)
     {
         JsonSchema jsonSchema = JsonSerializer.Deserialize(schema, Context.Default.JsonSchema)!;
-        EvaluationOptions options = new() { OutputFormat = OutputFormat.List };
+        EvaluationOptions options = new()
+        {
+            OutputFormat = OutputFormat.List,
+            RequireFormatValidation = true // format does not validate by default
+        };
         return jsonSchema.Evaluate(instance, options);
     }
 

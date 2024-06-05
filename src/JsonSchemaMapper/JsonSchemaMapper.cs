@@ -45,7 +45,7 @@ internal
     {
         if (options is null)
         {
-           ThrowHelpers.ThrowArgumentNullException(nameof(options));
+            ThrowHelpers.ThrowArgumentNullException(nameof(options));
         }
 
         if (type is null)
@@ -706,6 +706,7 @@ internal
 
         if (format is not null)
         {
+            // It's important to note that `format` doesn't validate by default
             schema.Add(FormatPropertyName, format);
         }
 

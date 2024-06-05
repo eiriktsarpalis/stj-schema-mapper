@@ -20,7 +20,8 @@ internal static partial class TestTypes
 
     public static IEnumerable<ITestData> GetTestDataCore()
     {
-        // Primitives and built-in types
+		// Primitives and built-in types
+		// maybe use `true` schema
         yield return new TestData<object>(
             Value: new(), 
             AdditionalValues: [null, 42, false, 3.14, 3.14M, new int[] { 1, 2, 3 }, new SimpleRecord(1, "str", false, 3.14)],
@@ -61,7 +62,11 @@ internal static partial class TestTypes
         yield return new TestData<DateTimeOffset>(
             Value: new(new DateTime(2021, 1, 1), TimeSpan.Zero), 
             AdditionalValues: [DateTimeOffset.MinValue, DateTimeOffset.MaxValue],
-            ExpectedJsonSchema: """{"type":"string","format": "date-time"}""");
+			// `date-time` format is RFC3339; not sure about DTO, but DT serializes as IS08601.
+			// See https://github.com/dotnet/runtime/issues/85545.
+			// There's a good overlap, but it's not 100%.
+			// `format` is not validated by default
+			ExpectedJsonSchema: """{"type":"string","format": "date-time"}""");
 
         yield return new TestData<TimeSpan>(
             Value: new(hours: 5, minutes: 13, seconds: 3),
@@ -69,13 +74,17 @@ internal static partial class TestTypes
             ExpectedJsonSchema: """{"type":"string", "pattern": "^-?(\\d+\\.)?\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,7})?$"}""");
 
 #if NET6_0_OR_GREATER
+		// `format` is not validated by default
         yield return new TestData<DateOnly>(new(2021, 1, 1), ExpectedJsonSchema: """{"type":"string","format": "date"}""");
+		// `format` is not validated by default
         yield return new TestData<TimeOnly>(new(hour: 22, minute: 30, second: 33, millisecond: 100), ExpectedJsonSchema: """{"type":"string","format": "time"}""");
 #endif
         yield return new TestData<Guid>(Guid.Empty);
         yield return new TestData<Uri>(new("http://example.com"));
-        yield return new TestData<Version>(new(1, 2, 3, 4), ExpectedJsonSchema: """{"type":"string","format":"^\\d+(\\.\\d+){1,3}$"}""");
+        yield return new TestData<Version>(new(1, 2, 3, 4), ExpectedJsonSchema: """{"type":"string","pattern":"^\\d+(\\.\\d+){1,3}$"}""");
+		// maybe use `true` schema
         yield return new TestData<JsonDocument>(JsonDocument.Parse("""[{ "x" : 42 }]"""), ExpectedJsonSchema: "{}");
+		// maybe use `true` schema
         yield return new TestData<JsonElement>(JsonDocument.Parse("""[{ "x" : 42 }]""").RootElement, ExpectedJsonSchema: "{}");
         yield return new TestData<JsonNode>(JsonNode.Parse("""[{ "x" : 42 }]"""));
         yield return new TestData<JsonValue>((JsonValue)42);
@@ -84,14 +93,18 @@ internal static partial class TestTypes
 
         // Enum types
         yield return new TestData<IntEnum>(IntEnum.A, ExpectedJsonSchema: """{"type":"integer"}""");
-        yield return new TestData<StringEnum>(StringEnum.A, ExpectedJsonSchema: """{"type": "string", "enum": ["A","B","C"]}""");
-        yield return new TestData<FlagsStringEnum>(FlagsStringEnum.A, ExpectedJsonSchema: """{"type":"string"}""");
+        // `type` is redundant here since `enum` is exclusive
+		yield return new TestData<StringEnum>(StringEnum.A, ExpectedJsonSchema: """{"type": "string", "enum": ["A","B","C"]}""");
+		// why not use `enum`?
+		yield return new TestData<FlagsStringEnum>(FlagsStringEnum.A, ExpectedJsonSchema: """{"type":"string"}""");
 
         // Nullable<T> types
         yield return new TestData<bool?>(true, AdditionalValues: [null], ExpectedJsonSchema: """{"type":["boolean","null"]}""");
         yield return new TestData<int?>(42, AdditionalValues: [null], ExpectedJsonSchema: """{"type":["integer","null"]}""");
         yield return new TestData<double?>(3.14, AdditionalValues: [null], ExpectedJsonSchema: """{"type":["number","null"]}""");
+		// `format` is not validated by default
         yield return new TestData<Guid?>(Guid.Empty, AdditionalValues: [null], ExpectedJsonSchema: """{"type":["string","null"],"format":"uuid"}""");
+		// maybe use `true` schema
         yield return new TestData<JsonElement?>(JsonDocument.Parse("{}").RootElement, AdditionalValues: [null], ExpectedJsonSchema: "{}");
         yield return new TestData<IntEnum?>(IntEnum.A, AdditionalValues: [null], ExpectedJsonSchema: """{"type":["integer","null"]}""");
         yield return new TestData<StringEnum?>(StringEnum.A, AdditionalValues: [null], ExpectedJsonSchema: """{"type":["string","null"],"enum":["A","B","C",null]}""");
@@ -257,6 +270,9 @@ internal static partial class TestTypes
         yield return new TestData<PocoWithRecursiveMembers>(
             Value: new() { Value = 1, Next = new() { Value = 2, Next = new() { Value = 3 } } },
             AdditionalValues: [new() { Value = 1, Next = null }],
+			// I would recommend extracting the recursive definition into `$defs`.
+			// Having pointers into other keywords isn't disallowed, but it's considered bad practice,
+			// and it's not a practice anyone (especially as influential as .Net) should promote.
             ExpectedJsonSchema: """
             {
                 "type": "object",
@@ -303,7 +319,10 @@ internal static partial class TestTypes
             }
             """);
 
+		// would be neat to have the converter expose or be attributed with a schema somehow
+		// maybe use `true` schema
         yield return new TestData<PocoWithCustomConverter>(new() { Value = 42 }, ExpectedJsonSchema: "{}");
+		// use `true` schema
         yield return new TestData<PocoWithCustomPropertyConverter>(new() { Value = 42 }, ExpectedJsonSchema: """{"type":"object","properties":{"Value":{}}}""");
         yield return new TestData<PocoWithEnums>(
             Value: new()
@@ -403,6 +422,7 @@ internal static partial class TestTypes
             Value: new() { Name = "name", ExtensionData = new() { ["x"] = 42 } },
             ExpectedJsonSchema: """{"type":"object","properties":{"Name":{"type":["string","null"]}}}""");
 
+		// would be good to support this for sealed types as well
         yield return new TestData<PocoDisallowingUnmappedMembers>(
             Value: new() { Name = "name", Age = 42 },
             ExpectedJsonSchema: """
@@ -497,7 +517,9 @@ internal static partial class TestTypes
                 new PocoWithPolymorphism.DerivedDictionary { BaseValue = 42 },
             ],
 
-            ExpectedJsonSchema: """
+			// In the future, we're planning a `propertyDependencies` keyword that will better handle this case.
+			// See https://github.com/json-schema-org/json-schema-spec/blob/main/proposals/propertyDependencies.md
+			ExpectedJsonSchema: """
             {
                 "anyOf": [
                     {
@@ -564,6 +586,9 @@ internal static partial class TestTypes
             }
             """);
 
+		// Again, not ideal referencing directly into the schema structure.
+		// Better practice is to extract the common subschema to `$defs`.
+		// Not a fan of .Net promoting this.
         yield return new TestData<PocoCombiningPolymorphicTypeAndDerivedTypes>(
             Value: new(),
             ExpectedJsonSchema: """
@@ -666,7 +691,9 @@ internal static partial class TestTypes
         yield return new TestData<ImmutableArray<int>>([1, 2, 3]);
         yield return new TestData<ImmutableList<string>>(["one", "two", "three"]);
         yield return new TestData<ImmutableQueue<bool>>([false, false, true]);
+		// use `true` schema
         yield return new TestData<object[]>([1, "two", 3.14], ExpectedJsonSchema: """{"type":"array","items":{}}""");
+		// use `true` schema
         yield return new TestData<System.Collections.ArrayList>([1, "two", 3.14], ExpectedJsonSchema: """{"type":"array","items":{}}""");
 
         // Dictionary types
@@ -702,12 +729,14 @@ internal static partial class TestTypes
             }
             """);
 
+		// `additionalProperties: true` is more common
         yield return new TestData<Dictionary<string, object>>(
             Value: new() { ["one"] = 1, ["two"] = "two", ["three"] = 3.14 }, 
             ExpectedJsonSchema: """{"type":"object","additionalProperties":{}}""");
 
+		// `additionalProperties: true` is more common
         yield return new TestData<Hashtable>(
-            Value: new() { ["one"] = 1, ["two"] = "two", ["three"] = 3.14 }, 
+	        Value: new() { ["one"] = 1, ["two"] = "two", ["three"] = 3.14 }, 
             ExpectedJsonSchema: """{"type":"object","additionalProperties":{}}""");
     }
 
