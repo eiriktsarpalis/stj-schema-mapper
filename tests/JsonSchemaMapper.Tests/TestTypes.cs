@@ -62,7 +62,7 @@ internal static partial class TestTypes
         yield return new TestData<DateTimeOffset>(
             Value: new(new DateTime(2021, 1, 1), TimeSpan.Zero), 
             AdditionalValues: [DateTimeOffset.MinValue, DateTimeOffset.MaxValue],
-            ExpectedJsonSchema: """{"type":"string","pattern":"^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d\u002B)?(?:Z|[\u002B-]\\d{2}:\\d{2})?$"}""");
+            ExpectedJsonSchema: """{"type":"string","format":"date-time"}""");
 
         yield return new TestData<TimeSpan>(
             Value: new(hours: 5, minutes: 13, seconds: 3),

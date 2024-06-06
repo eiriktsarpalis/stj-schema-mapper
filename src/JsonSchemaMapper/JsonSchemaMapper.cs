@@ -870,7 +870,7 @@ internal
         [typeof(Memory<byte>)] = new(JsonSchemaType.String),
         [typeof(ReadOnlyMemory<byte>)] = new(JsonSchemaType.String),
         [typeof(DateTime)] = new(JsonSchemaType.String, pattern: Iso8601DateTimeRegex),
-        [typeof(DateTimeOffset)] = new(JsonSchemaType.String, pattern: Iso8601DateTimeRegex),
+        [typeof(DateTimeOffset)] = new(JsonSchemaType.String, format: "date-time"),
 
         // TimeSpan is represented as a string in the format "[-][d.]hh:mm:ss[.fffffff]".
         [typeof(TimeSpan)] = new(JsonSchemaType.String, pattern: @"^-?(\d+\.)?\d{2}:\d{2}:\d{2}(\.\d{1,7})?$"),
