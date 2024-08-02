@@ -8,16 +8,16 @@
   <ItemGroup>
     <!-- Source dependencies -->
     <PackageVersion Include="StyleCop.Analyzers" Version="1.1.118" />
-    <PackageVersion Include="System.Text.Json" Version="8.0.3" />
+    <PackageVersion Include="System.Text.Json" Version="8.0.4" />
     <PackageVersion Include="PolySharp" Version="1.14.0" />
     <PackageVersion Include="MinVer" Version="5.0.0" />
     <!-- Testing dependencies -->
-    <PackageVersion Include="xunit" Version="2.4.2" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="2.4.5" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.5.0" />
+    <PackageVersion Include="xunit" Version="2.9.0" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
     <PackageVersion Include="coverlet.collector" Version="6.0.0" />
-    <PackageVersion Include="JsonSchema.Net" Version="[6.0.5]" />
-    <PackageVersion Include="JsonSchema.Net.Generation" Version="[4.1.1]" />
+    <PackageVersion Include="JsonSchema.Net" Version="[7.1.2]" />
+    <PackageVersion Include="JsonSchema.Net.Generation" Version="[4.5.0]" />
     <PackageVersion Include="System.Collections.Immutable" Version="8.0.0" />
     <PackageVersion Include="System.ComponentModel.Annotations" Version="5.0.0" />
   </ItemGroup>
