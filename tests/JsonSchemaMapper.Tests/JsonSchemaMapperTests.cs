@@ -16,7 +16,7 @@ public abstract class JsonSchemaMapperTests
     [MemberData(nameof(TestTypes.GetTestData), MemberType = typeof(TestTypes))]
     public void TestTypes_GeneratesExpectedJsonSchema(ITestData testData)
     {
-        JsonObject schema = Options.GetJsonSchema(testData.Type, testData.Configuration);
+        JsonNode schema = Options.GetJsonSchema(testData.Type, testData.Configuration);
         Helpers.AssertValidJsonSchema(testData.Type, testData.ExpectedJsonSchema, schema);
     }
 
@@ -24,7 +24,7 @@ public abstract class JsonSchemaMapperTests
     [MemberData(nameof(TestTypes.GetTestDataUsingAllValues), MemberType = typeof(TestTypes))]
     public void TestTypes_SerializedValueMatchesGeneratedSchema(ITestData testData)
     {
-        JsonObject schema = Options.GetJsonSchema(testData.Type, testData.Configuration);
+        JsonNode schema = Options.GetJsonSchema(testData.Type, testData.Configuration);
         JsonNode? instance = JsonSerializer.SerializeToNode(testData.Value, testData.Type, Options);
         Helpers.AssertDocumentMatchesSchema(schema, instance);
     }
@@ -33,7 +33,7 @@ public abstract class JsonSchemaMapperTests
     [MemberData(nameof(TestMethods.GetTestData), MemberType = typeof(TestMethods))]
     public void TestMethods_GeneratesExpectedJsonSchema(MethodBase method, string expectedJsonSchema)
     {
-        JsonObject schema = Options.GetJsonSchema(method);
+        JsonNode schema = Options.GetJsonSchema(method);
         Helpers.AssertValidJsonSchema(null!, expectedJsonSchema, schema);
     }
 
@@ -43,8 +43,8 @@ public abstract class JsonSchemaMapperTests
     public void IncludeSchemaVersion_ControlsSchemaProperty(bool includeSchemaVersion)
     {
         var config = new JsonSchemaMapperConfiguration { IncludeSchemaVersion = includeSchemaVersion };
-        JsonObject schema = Options.GetJsonSchema(typeof(TestTypes.SimplePoco), config);
-        Assert.Equal(includeSchemaVersion, schema.ContainsKey("$schema"));
+        JsonNode schema = Options.GetJsonSchema(typeof(TestTypes.SimplePoco), config);
+        Assert.Equal(includeSchemaVersion, schema is JsonObject obj && obj.ContainsKey("$schema"));
         if (includeSchemaVersion)
         {
             Assert.Equal(JsonSchemaMapper.SchemaVersion, (string)schema["$schema"]!);
@@ -57,8 +57,8 @@ public abstract class JsonSchemaMapperTests
     public void ResolveDescriptionAttributes_ControlsDescriptionProperty(bool resolveDescriptionAttributes)
     {
         var config = new JsonSchemaMapperConfiguration { ResolveDescriptionAttributes = resolveDescriptionAttributes };
-        JsonObject schema = Options.GetJsonSchema(typeof(TestTypes.PocoWithDescription), config);
-        Assert.Equal(resolveDescriptionAttributes, schema.ContainsKey("description"));
+        JsonNode schema = Options.GetJsonSchema(typeof(TestTypes.PocoWithDescription), config);
+        Assert.Equal(resolveDescriptionAttributes, schema is JsonObject obj && obj.ContainsKey("description"));
         if (resolveDescriptionAttributes)
         {
             Assert.Equal("The type description", (string)schema["description"]!);
@@ -70,25 +70,11 @@ public abstract class JsonSchemaMapperTests
     [InlineData(typeof(int[]), "array")]
     [InlineData(typeof(Dictionary<string, int>), "object")]
     [InlineData(typeof(TestTypes.SimplePoco), "object")]
-    public void ReferenceTypeNullability_AlwaysNullable_MarksAllReferenceTypesAsNullable(Type referenceType, string expectedType)
+    public void TreatNullObliviousAsNonNullable_True_MarksAllReferenceTypesAsNonNullable(Type referenceType, string expectedType)
     {
         Assert.True(!referenceType.IsValueType);
-        var config = new JsonSchemaMapperConfiguration { ReferenceTypeNullability = ReferenceTypeNullability.AlwaysNullable };
-        JsonObject schema = Options.GetJsonSchema(referenceType, config);
-        JsonArray arr = Assert.IsType<JsonArray>(schema["type"]);
-        Assert.Equal([expectedType, "null"], arr.Select(e => (string)e!));
-    }
-
-    [Theory]
-    [InlineData(typeof(string), "string")]
-    [InlineData(typeof(int[]), "array")]
-    [InlineData(typeof(Dictionary<string, int>), "object")]
-    [InlineData(typeof(TestTypes.SimplePoco), "object")]
-    public void ReferenceTypeNullability_NeverNullable_MarksAllReferenceTypesAsNullable(Type referenceType, string expectedType)
-    {
-        Assert.True(!referenceType.IsValueType);
-        var config = new JsonSchemaMapperConfiguration { ReferenceTypeNullability = ReferenceTypeNullability.NeverNullable };
-        JsonObject schema = Options.GetJsonSchema(referenceType, config);
+        var config = new JsonSchemaMapperConfiguration { TreatNullObliviousAsNonNullable = true };
+        JsonNode schema = Options.GetJsonSchema(referenceType, config);
         JsonValue type = Assert.IsAssignableFrom<JsonValue>(schema["type"]);
         Assert.Equal(expectedType, (string)type!);
     }
@@ -100,56 +86,27 @@ public abstract class JsonSchemaMapperTests
     [InlineData(typeof(ImmutableArray<int>), "array")]
     [InlineData(typeof(TestTypes.StructDictionary<string, int>), "object")]
     [InlineData(typeof(TestTypes.SimpleRecordStruct), "object")]
-    public void ReferenceTypeNullability_AlwaysNullable_DoesNotImpactNonReferenceTypes(Type referenceType, string expectedType)
+    public void TreatNullObliviousAsNonNullable_True_DoesNotImpactNonReferenceTypes(Type referenceType, string expectedType)
     {
         Assert.True(referenceType.IsValueType);
-        var config = new JsonSchemaMapperConfiguration { ReferenceTypeNullability = ReferenceTypeNullability.AlwaysNullable };
-        JsonObject schema = Options.GetJsonSchema(referenceType, config);
+        var config = new JsonSchemaMapperConfiguration { TreatNullObliviousAsNonNullable = true };
+        JsonNode schema = Options.GetJsonSchema(referenceType, config);
         JsonValue value = Assert.IsAssignableFrom<JsonValue>(schema["type"]);
         Assert.Equal(expectedType, (string)value!);
     }
 
-    [Theory]
-    [InlineData(typeof(int), "integer")]
-    [InlineData(typeof(double), "number")]
-    [InlineData(typeof(bool), "boolean")]
-    [InlineData(typeof(ImmutableArray<int>), "array")]
-    [InlineData(typeof(TestTypes.StructDictionary<string, int>), "object")]
-    [InlineData(typeof(TestTypes.SimpleRecordStruct), "object")]
-    public void ReferenceTypeNullability_NeverNullable_DoesNotImpactNonReferenceTypes(Type referenceType, string expectedType)
+    [Fact]
+    public void TreatNullObliviousAsNonNullable_True_DoesNotImpactObjectType()
     {
-        Assert.True(referenceType.IsValueType);
-        var config = new JsonSchemaMapperConfiguration { ReferenceTypeNullability = ReferenceTypeNullability.NeverNullable };
-        JsonObject schema = Options.GetJsonSchema(referenceType, config);
-        JsonValue value = Assert.IsAssignableFrom<JsonValue>(schema["type"]);
-        Assert.Equal(expectedType, (string)value!);
-    }
-
-    [Theory]
-    [InlineData(ReferenceTypeNullability.AlwaysNullable)]
-    [InlineData(ReferenceTypeNullability.Annotated)]
-    [InlineData(ReferenceTypeNullability.NeverNullable)]
-    public void ReferenceTypeNullability_DoesNotImpactObjectType(ReferenceTypeNullability nullability)
-    {
-        var config = new JsonSchemaMapperConfiguration { ReferenceTypeNullability = nullability };
-        JsonObject schema = Options.GetJsonSchema(typeof(object), config);
-        Assert.DoesNotContain("type", schema);
-    }
-
-    [Theory]
-    [InlineData(typeof(TestTypes.SimpleRecord))]
-    [InlineData(typeof(TestTypes.RecordWithOptionalParameters))]
-    public void RequireConstructorParameters_Disabled_TypeWithConstructorHasNoRequiredProperties(Type type)
-    {
-        var config = new JsonSchemaMapperConfiguration { RequireConstructorParameters = false };
-        JsonObject schema = Options.GetJsonSchema(type, config);
-        Assert.DoesNotContain("required", schema);
+        var config = new JsonSchemaMapperConfiguration { TreatNullObliviousAsNonNullable = true };
+        JsonNode schema = Options.GetJsonSchema(typeof(object), config);
+        Assert.False(schema is JsonObject jObj && jObj.ContainsKey("type"));
     }
 
     [Fact]
     public void TypeWithDisallowUnmappedMembers_AdditionalPropertiesFailValidation()
     {
-        JsonObject schema = Options.GetJsonSchema(typeof(TestTypes.PocoDisallowingUnmappedMembers));
+        JsonNode schema = Options.GetJsonSchema(typeof(TestTypes.PocoDisallowingUnmappedMembers));
         JsonNode? jsonWithUnmappedProperties = JsonNode.Parse("""{ "UnmappedProperty" : {} }""");
         Helpers.AssertDoesNotMatchSchema(schema, jsonWithUnmappedProperties);
     }
@@ -172,19 +129,11 @@ public abstract class JsonSchemaMapperTests
     }
 
     [Fact]
-    public void AllowSchemaReferences_Disabled_RecursiveType_ThrowsInvalidOperationException()
-    {
-        var config = new JsonSchemaMapperConfiguration { AllowSchemaReferences = false };
-        var ex = Assert.Throws<InvalidOperationException>(() => Options.GetJsonSchema(typeof(TestTypes.PocoWithRecursiveMembers), config));
-        Assert.Contains("The maximum depth of the schema has been reached", ex.Message);
-    }
-
-    [Fact]
     public void MaxDepth_SetToZero_NonTrivialSchema_ThrowsInvalidOperationException()
     {
-        var config = new JsonSchemaMapperConfiguration { MaxDepth = 0 };
-        var ex = Assert.Throws<InvalidOperationException>(() => Options.GetJsonSchema(typeof(TestTypes.SimplePoco), config));
-        Assert.Contains("The maximum depth of the schema has been reached", ex.Message);
+        JsonSerializerOptions options = new(Options) { MaxDepth = 1 };
+        var ex = Assert.Throws<InvalidOperationException>(() => options.GetJsonSchema(typeof(TestTypes.SimplePoco)));
+        Assert.Contains("The depth of the generated JSON schema exceeds the JsonSerializerOptions.MaxDepth setting.", ex.Message);
     }
 
     [Fact]

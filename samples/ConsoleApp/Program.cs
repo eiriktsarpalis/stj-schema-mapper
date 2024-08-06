@@ -35,7 +35,7 @@ var forecast = new WeatherForecast
 
 Console.WriteLine(JsonSerializer.Serialize(forecast, MyContext.Default.WeatherForecast));
 
-JsonObject schema = MyContext.Default.WeatherForecast.GetJsonSchema();
+JsonNode schema = MyContext.Default.WeatherForecast.GetJsonSchema();
 Console.WriteLine(schema.ToJsonString(writeIndented: true));
 
 MethodInfo method = typeof(MyKernelPlugin).GetMethod(nameof(MyKernelPlugin.ShouldStepOutside))!;

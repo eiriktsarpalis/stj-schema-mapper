@@ -10,27 +10,16 @@ public static class JsonSchemaMapperConfigurationTests
     public static void JsonSchemaMapperConfiguration_DefaultValues(bool useSingleton)
     {
         JsonSchemaMapperConfiguration configuration = useSingleton ? JsonSchemaMapperConfiguration.Default : new();
-        Assert.True(configuration.AllowSchemaReferences);
         Assert.True(configuration.IncludeSchemaVersion);
         Assert.True(configuration.ResolveDescriptionAttributes);
-        Assert.Equal(ReferenceTypeNullability.Annotated, configuration.ReferenceTypeNullability);
-        Assert.True(configuration.RequireConstructorParameters);
-        Assert.Equal(64, configuration.MaxDepth);
+        Assert.False(configuration.TreatNullObliviousAsNonNullable);
+        Assert.False(configuration.IncludeTypeInEnums);
     }
 
     [Fact]
     public static void JsonSchemaMapperConfiguration_Singleton_ReturnsSameInstance()
     {
         Assert.Same(JsonSchemaMapperConfiguration.Default, JsonSchemaMapperConfiguration.Default);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public static void JsonSchemaMapperConfiguration_AllowSchemaReferences(bool allowSchemaReferences)
-    {
-        JsonSchemaMapperConfiguration configuration = new() { AllowSchemaReferences = allowSchemaReferences };
-        Assert.Equal(allowSchemaReferences, configuration.AllowSchemaReferences);
     }
 
     [Theory]
@@ -52,41 +41,20 @@ public static class JsonSchemaMapperConfigurationTests
     }
 
     [Theory]
-    [InlineData(ReferenceTypeNullability.AlwaysNullable)]
-    [InlineData(ReferenceTypeNullability.Annotated)]
-    [InlineData(ReferenceTypeNullability.NeverNullable)]
-    public static void JsonSchemaMapperConfiguration_ReferenceTypeNullability(ReferenceTypeNullability referenceTypeNullability)
+    [InlineData(false)]
+    [InlineData(true)]
+    public static void JsonSchemaMapperConfiguration_TreatNullObliviousAsNonNullable(bool treatNullObliviousAsNonNullable)
     {
-        JsonSchemaMapperConfiguration configuration = new() { ReferenceTypeNullability = referenceTypeNullability };
-        Assert.Equal(referenceTypeNullability, configuration.ReferenceTypeNullability);
+        JsonSchemaMapperConfiguration configuration = new() { TreatNullObliviousAsNonNullable = treatNullObliviousAsNonNullable };
+        Assert.Equal(treatNullObliviousAsNonNullable, configuration.TreatNullObliviousAsNonNullable);
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public static void JsonSchemaMapperConfiguration_RequireConstructorParameters(bool requiredConstructorParameters)
+    public static void JsonSchemaMapperConfiguration_IncludeTypeInEnums(bool includeTypeInEnums)
     {
-        JsonSchemaMapperConfiguration configuration = new() { RequireConstructorParameters = requiredConstructorParameters };
-        Assert.Equal(requiredConstructorParameters, configuration.RequireConstructorParameters);
-    }
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(1)]
-    [InlineData(2)]
-    [InlineData(int.MaxValue)]
-    public static void JsonSchemaMapperConfiguration_MaxDepth_ValidValue(int maxDepth)
-    {
-        JsonSchemaMapperConfiguration configuration = new() { MaxDepth = maxDepth };
-        Assert.Equal(maxDepth, configuration.MaxDepth);
-    }
-
-    [Theory]
-    [InlineData(-1)]
-    [InlineData(-2)]
-    [InlineData(int.MinValue)]
-    public static void JsonSchemaMapperConfiguration_MaxDepth_InvalidValue_ThrowsArgumentOutOfRangeException(int maxDepth)
-    {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new JsonSchemaMapperConfiguration { MaxDepth = maxDepth });
+        JsonSchemaMapperConfiguration configuration = new() { IncludeTypeInEnums = includeTypeInEnums };
+        Assert.Equal(includeTypeInEnums, configuration.IncludeTypeInEnums);
     }
 }

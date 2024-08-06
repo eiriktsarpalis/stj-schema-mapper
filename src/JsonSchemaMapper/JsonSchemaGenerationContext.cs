@@ -19,12 +19,18 @@ internal
 #endif
     readonly struct JsonSchemaGenerationContext
 {
-    internal JsonSchemaGenerationContext(JsonTypeInfo typeInfo, Type? declaringType, JsonPropertyInfo? propertyInfo, ParameterInfo? parameterInfo)
+    internal JsonSchemaGenerationContext(
+        JsonTypeInfo typeInfo,
+        Type? declaringType,
+        JsonPropertyInfo? propertyInfo,
+        ParameterInfo? parameterInfo,
+        ICustomAttributeProvider? propertyAttributeProvider)
     {
         TypeInfo = typeInfo;
         DeclaringType = declaringType;
         PropertyInfo = propertyInfo;
         ParameterInfo = parameterInfo;
+        PropertyAttributeProvider = propertyAttributeProvider;
     }
 
     /// <summary>
@@ -47,6 +53,11 @@ internal
     /// has been associated with the accompanying <see cref="PropertyInfo"/>.
     /// </summary>
     public ParameterInfo? ParameterInfo { get; }
+
+    /// <summary>
+    /// The <see cref="ICustomAttributeProvider"/> corresponding to the property or field being processed.
+    /// </summary>
+    public ICustomAttributeProvider? PropertyAttributeProvider { get; }
 
     /// <summary>
     /// Checks if the type, property, or parameter has the specified attribute applied.
@@ -77,7 +88,7 @@ internal
     public IEnumerable<Attribute> GetCustomAttributes(Type type, bool inherit = false)
     {
         // Resolves attributes starting from the property, then the parameter, and finally the type itself.
-        return GetAttrs(JsonSchemaMapper.ResolveAttributeProvider(DeclaringType, PropertyInfo))
+        return GetAttrs(PropertyAttributeProvider)
             .Concat(GetAttrs(ParameterInfo))
             .Concat(GetAttrs(TypeInfo.Type))
             .Cast<Attribute>();

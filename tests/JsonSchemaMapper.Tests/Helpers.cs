@@ -9,7 +9,7 @@ namespace JsonSchemaMapper.Tests;
 
 internal static partial class Helpers
 {
-    public static void AssertValidJsonSchema(Type type, string? expectedJsonSchema, JsonObject actualJsonSchema)
+    public static void AssertValidJsonSchema(Type type, string? expectedJsonSchema, JsonNode actualJsonSchema)
     {
         // If an expected schema is provided, use that. Otherwise, generate a schema from the type.
         JsonNode? expectedJsonSchemaNode = expectedJsonSchema != null
@@ -17,7 +17,7 @@ internal static partial class Helpers
             : JsonSerializer.SerializeToNode(new JsonSchemaBuilder().FromType(type), Context.Default.JsonSchema);
 
         // Trim the $schema property from actual schema since it's not included by the generator.
-        actualJsonSchema.Remove("$schema");
+        (actualJsonSchema as JsonObject)?.Remove("$schema");
 
         if (!JsonNode.DeepEquals(expectedJsonSchemaNode, actualJsonSchema))
         {
@@ -31,7 +31,7 @@ internal static partial class Helpers
         }
     }
 
-    public static void AssertDocumentMatchesSchema(JsonObject schema, JsonNode? instance)
+    public static void AssertDocumentMatchesSchema(JsonNode schema, JsonNode? instance)
     {
         EvaluationResults results = EvaluateSchemaCore(schema, instance);
         if (!results.IsValid)
@@ -52,7 +52,7 @@ internal static partial class Helpers
         }
     }
 
-    public static void AssertDoesNotMatchSchema(JsonObject schema, JsonNode? instance)
+    public static void AssertDoesNotMatchSchema(JsonNode schema, JsonNode? instance)
     {
         EvaluationResults results = EvaluateSchemaCore(schema, instance);
         if (results.IsValid)

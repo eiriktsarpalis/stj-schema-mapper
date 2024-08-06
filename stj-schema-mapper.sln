@@ -2,20 +2,20 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.10.34707.107
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JsonSchemaMapper", "src\JsonSchemaMapper\JsonSchemaMapper.csproj", "{807A4702-E318-4863-A018-02BCC5004131}" 
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JsonSchemaMapper", "src\JsonSchemaMapper\JsonSchemaMapper.csproj", "{807A4702-E318-4863-A018-02BCC5004131}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ConsoleApp", "samples\ConsoleApp\ConsoleApp.csproj", "{F7FD279B-DC74-4FFC-A22C-DDDBDBC06AE0}" 
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ConsoleApp", "samples\ConsoleApp\ConsoleApp.csproj", "{F7FD279B-DC74-4FFC-A22C-DDDBDBC06AE0}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JsonSchemaMapper.Tests", "tests\JsonSchemaMapper.Tests\JsonSchemaMapper.Tests.csproj", "{CD385ADE-F141-4A65-A5D8-C02235AD0A63}" 
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JsonSchemaMapper.Tests", "tests\JsonSchemaMapper.Tests\JsonSchemaMapper.Tests.csproj", "{CD385ADE-F141-4A65-A5D8-C02235AD0A63}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".github", ".github", "{6E159164-4236-4957-8C35-95F12138673C}" 
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".github", ".github", "{6E159164-4236-4957-8C35-95F12138673C}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{0D22C6ED-EC9C-43EB-8C66-94563278C771}" 
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{0D22C6ED-EC9C-43EB-8C66-94563278C771}"
 	ProjectSection(SolutionItems) = preProject
 		.github\workflows\build.yml = .github\workflows\build.yml
 	EndProjectSection
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{04C92EB7-1E71-41CC-BCD8-F54EC65CD668}" 
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{04C92EB7-1E71-41CC-BCD8-F54EC65CD668}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
 		.gitignore = .gitignore
@@ -25,14 +25,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		LICENSE = LICENSE
 		Makefile = Makefile
 		README.md = README.md
-		stj-schema-mapper.sln = stj-schema-mapper.sln
 	EndProjectSection
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{8E74012B-9F9E-4E91-905A-08276A813702}" 
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{8E74012B-9F9E-4E91-905A-08276A813702}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{EC370DFD-6F10-47C1-B1FC-FB62758A44DF}" 
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{EC370DFD-6F10-47C1-B1FC-FB62758A44DF}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{874CA1C9-D48E-420D-8BF0-E53FB2A8710D}" 
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{874CA1C9-D48E-420D-8BF0-E53FB2A8710D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -40,14 +39,14 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{F7FD279B-DC74-4FFC-A22C-DDDBDBC06AE0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{F7FD279B-DC74-4FFC-A22C-DDDBDBC06AE0}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{F7FD279B-DC74-4FFC-A22C-DDDBDBC06AE0}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{F7FD279B-DC74-4FFC-A22C-DDDBDBC06AE0}.Release|Any CPU.Build.0 = Release|Any CPU
 		{807A4702-E318-4863-A018-02BCC5004131}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{807A4702-E318-4863-A018-02BCC5004131}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{807A4702-E318-4863-A018-02BCC5004131}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{807A4702-E318-4863-A018-02BCC5004131}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F7FD279B-DC74-4FFC-A22C-DDDBDBC06AE0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F7FD279B-DC74-4FFC-A22C-DDDBDBC06AE0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F7FD279B-DC74-4FFC-A22C-DDDBDBC06AE0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F7FD279B-DC74-4FFC-A22C-DDDBDBC06AE0}.Release|Any CPU.Build.0 = Release|Any CPU
 		{CD385ADE-F141-4A65-A5D8-C02235AD0A63}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{CD385ADE-F141-4A65-A5D8-C02235AD0A63}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CD385ADE-F141-4A65-A5D8-C02235AD0A63}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -57,10 +56,10 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{0D22C6ED-EC9C-43EB-8C66-94563278C771} = {6E159164-4236-4957-8C35-95F12138673C}
-		{F7FD279B-DC74-4FFC-A22C-DDDBDBC06AE0} = {8E74012B-9F9E-4E91-905A-08276A813702}
 		{807A4702-E318-4863-A018-02BCC5004131} = {EC370DFD-6F10-47C1-B1FC-FB62758A44DF}
+		{F7FD279B-DC74-4FFC-A22C-DDDBDBC06AE0} = {8E74012B-9F9E-4E91-905A-08276A813702}
 		{CD385ADE-F141-4A65-A5D8-C02235AD0A63} = {874CA1C9-D48E-420D-8BF0-E53FB2A8710D}
+		{0D22C6ED-EC9C-43EB-8C66-94563278C771} = {6E159164-4236-4957-8C35-95F12138673C}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {7F5B1529-5E5A-4764-A58A-86952D113CC6}
