@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net9.0;net6.0;netstandard2.0</TargetFrameworks>
+    <TargetFrameworks>net9.0;net8.0;net6.0;netstandard2.0</TargetFrameworks>
     <DefineConstants>EXPOSE_JSON_SCHEMA_MAPPER;$(DefineConstants)</DefineConstants>
     <LangVersion>10</LangVersion>
     <ImplicitUsings>disable</ImplicitUsings>
@@ -27,7 +27,7 @@
     <PackageOutputPath>$(RepoRoot)artifacts/</PackageOutputPath>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0'">
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0' or '$(TargetFramework)' == 'net9.0'">
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 

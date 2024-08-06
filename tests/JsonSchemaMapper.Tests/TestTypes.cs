@@ -45,12 +45,12 @@ internal static partial class TestTypes
 #if NET6_0_OR_GREATER
         yield return new TestData<Half>((Half)3.141, ExpectedJsonSchema: """{"type":"number"}""");
 #endif
-        yield return new TestData<string>("I am a string");
-        yield return new TestData<char>('c', ExpectedJsonSchema: """{"type":"string"}""");
+        yield return new TestData<string>("I am a string", ExpectedJsonSchema: """{"type":["string","null"]}""");
+        yield return new TestData<char>('c', ExpectedJsonSchema: """{"type":"string","minLength":1,"maxLength":1}""");
         yield return new TestData<byte[]>(
             Value: [1, 2, 3], 
             AdditionalValues: [[]],
-            ExpectedJsonSchema: """{"type":"string"}""");
+            ExpectedJsonSchema: """{"type":["string","null"]}""");
 
         yield return new TestData<Memory<byte>>(new byte[] { 1, 2, 3 }, ExpectedJsonSchema: """{"type":"string"}""");
         yield return new TestData<ReadOnlyMemory<byte>>(new byte[] { 1, 2, 3 }, ExpectedJsonSchema: """{"type":"string"}""");
@@ -66,25 +66,25 @@ internal static partial class TestTypes
         yield return new TestData<TimeSpan>(
             Value: new(hours: 5, minutes: 13, seconds: 3),
             AdditionalValues: [TimeSpan.MinValue, TimeSpan.MaxValue],
-            ExpectedJsonSchema: """{"type":"string", "pattern": "^-?(\\d+\\.)?\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,7})?$"}""");
+            ExpectedJsonSchema: """{"$comment": "Represents a System.TimeSpan value.", "type":"string", "pattern": "^-?(\\d+\\.)?\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,7})?$"}""");
 
 #if NET6_0_OR_GREATER
         yield return new TestData<DateOnly>(new(2021, 1, 1), ExpectedJsonSchema: """{"type":"string","format": "date"}""");
         yield return new TestData<TimeOnly>(new(hour: 22, minute: 30, second: 33, millisecond: 100), ExpectedJsonSchema: """{"type":"string","format": "time"}""");
 #endif
         yield return new TestData<Guid>(Guid.Empty);
-        yield return new TestData<Uri>(new("http://example.com"));
-        yield return new TestData<Version>(new(1, 2, 3, 4), ExpectedJsonSchema: """{"type":"string","format":"^\\d+(\\.\\d+){1,3}$"}""");
+        yield return new TestData<Uri>(new("http://example.com"), ExpectedJsonSchema: """{"type":["string","null"], "format":"uri"}""");
+        yield return new TestData<Version>(new(1, 2, 3, 4), ExpectedJsonSchema: """{"$comment":"Represents a version string.", "type":["string","null"],"pattern":"^\\d+(\\.\\d+){1,3}$"}""");
         yield return new TestData<JsonDocument>(JsonDocument.Parse("""[{ "x" : 42 }]"""), ExpectedJsonSchema: "{}");
         yield return new TestData<JsonElement>(JsonDocument.Parse("""[{ "x" : 42 }]""").RootElement, ExpectedJsonSchema: "{}");
         yield return new TestData<JsonNode>(JsonNode.Parse("""[{ "x" : 42 }]"""));
         yield return new TestData<JsonValue>((JsonValue)42);
-        yield return new TestData<JsonObject>(new() { ["x"] = 42 });
-        yield return new TestData<JsonArray>([1, 2, 3]);
+        yield return new TestData<JsonObject>(new() { ["x"] = 42 }, ExpectedJsonSchema: """{"type":["object","null"]}""");
+        yield return new TestData<JsonArray>([1, 2, 3], ExpectedJsonSchema: """{"type":["array","null"]}""");
 
         // Enum types
         yield return new TestData<IntEnum>(IntEnum.A, ExpectedJsonSchema: """{"type":"integer"}""");
-        yield return new TestData<StringEnum>(StringEnum.A, ExpectedJsonSchema: """{"type": "string", "enum": ["A","B","C"]}""");
+        yield return new TestData<StringEnum>(StringEnum.A, ExpectedJsonSchema: """{"enum": ["A","B","C"]}""");
         yield return new TestData<FlagsStringEnum>(FlagsStringEnum.A, ExpectedJsonSchema: """{"type":"string"}""");
 
         // Nullable<T> types
@@ -94,7 +94,7 @@ internal static partial class TestTypes
         yield return new TestData<Guid?>(Guid.Empty, AdditionalValues: [null], ExpectedJsonSchema: """{"type":["string","null"],"format":"uuid"}""");
         yield return new TestData<JsonElement?>(JsonDocument.Parse("{}").RootElement, AdditionalValues: [null], ExpectedJsonSchema: "{}");
         yield return new TestData<IntEnum?>(IntEnum.A, AdditionalValues: [null], ExpectedJsonSchema: """{"type":["integer","null"]}""");
-        yield return new TestData<StringEnum?>(StringEnum.A, AdditionalValues: [null], ExpectedJsonSchema: """{"type":["string","null"],"enum":["A","B","C",null]}""");
+        yield return new TestData<StringEnum?>(StringEnum.A, AdditionalValues: [null], ExpectedJsonSchema: """{"enum":["A","B","C",null]}""");
         yield return new TestData<SimpleRecordStruct?>(
             new(1, "two", true, 3.14), 
             AdditionalValues: [null],
@@ -113,6 +113,24 @@ internal static partial class TestTypes
         // User-defined POCOs
         yield return new TestData<SimplePoco>(
             Value: new() { String = "string", StringNullable = "string", Int = 42, Double = 3.14, Boolean = true },
+            AdditionalValues: [new() { String = "str", StringNullable = null }, null],
+            ExpectedJsonSchema: """
+            {
+                "type": ["object","null"],
+                "properties": {
+                    "String": { "type": "string" },
+                    "StringNullable": { "type": ["string", "null"] },
+                    "Int": { "type": "integer" },
+                    "Double": { "type": "number" },
+                    "Boolean": { "type": "boolean" }
+                }
+            }
+            """);
+
+        // Same as above but with nullable types set to non-nullable
+        yield return new TestData<SimplePoco>(
+            Value: new() { String = "string", StringNullable = "string", Int = 42, Double = 3.14, Boolean = true },
+            AdditionalValues: [new() { String = "str", StringNullable = null }],
             ExpectedJsonSchema: """
             {
                 "type": "object",
@@ -124,31 +142,14 @@ internal static partial class TestTypes
                     "Boolean": { "type": "boolean" }
                 }
             }
-            """);
-
-        // Same as above but with nullable reference type resolution disabled
-        yield return new TestData<SimplePoco>(
-            Value: new() { String = "string", StringNullable = "string", Int = 42, Double = 3.14, Boolean = true },
-            AdditionalValues: [new() { String = null!, StringNullable = null }],
-            ExpectedJsonSchema: """
-            {
-                "type": ["object","null"],
-                "properties": {
-                    "String": { "type": ["string", "null"] },
-                    "StringNullable": { "type": ["string", "null"] },
-                    "Int": { "type": "integer" },
-                    "Double": { "type": "number" },
-                    "Boolean": { "type": "boolean" }
-                }
-            }
             """,
-            Configuration: new JsonSchemaMapperConfiguration { ReferenceTypeNullability = ReferenceTypeNullability.AlwaysNullable });
+            Configuration: new JsonSchemaMapperConfiguration { TreatNullObliviousAsNonNullable = true });
 
         yield return new TestData<SimpleRecord>(
             Value: new(1, "two", true, 3.14),
             ExpectedJsonSchema: """
             {
-              "type": "object",
+              "type": ["object","null"],
               "properties": {
                 "X": { "type": "integer" },
                 "Y": { "type": "string" },
@@ -177,18 +178,18 @@ internal static partial class TestTypes
             Value: new(1, "two", true, 3.14, StringEnum.A),
             ExpectedJsonSchema: """
             {
-              "type": "object",
+              "type": ["object","null"],
               "properties": {
                 "X1": { "type": "integer", "description": "required integer" },
                 "X2": { "type": "string" },
                 "X3": { "type": "boolean" },
                 "X4": { "type": "number" },
-                "X5": { "type": "string", "enum": ["A", "B", "C"], "description": "required string enum" },
+                "X5": { "enum": ["A", "B", "C"], "description": "required string enum" },
                 "Y1": { "type": "integer", "description": "optional integer", "default": 42 },
                 "Y2": { "type": "string", "default": "str" },
                 "Y3": { "type": "boolean", "default": true },
                 "Y4": { "type": "number", "default": 0 },
-                "Y5": { "type": "string", "enum": ["A", "B", "C"], "description": "optional string enum", "default": "A" }
+                "Y5": { "enum": ["A", "B", "C"], "description": "optional string enum", "default": "A" }
               },
               "required": ["X1", "X2", "X3", "X4", "X5"]
             }
@@ -198,7 +199,7 @@ internal static partial class TestTypes
             new() { X = "str1", Y = "str2" }, 
             ExpectedJsonSchema: """
             {
-              "type": "object",
+              "type": ["object","null"],
               "properties": {
                 "Y": { "type": "string" },
                 "Z": { "type": "integer" },
@@ -208,12 +209,21 @@ internal static partial class TestTypes
             }
             """);
 
-        yield return new TestData<PocoWithIgnoredMembers>(new() { X = 1, Y = 2 });
+        yield return new TestData<PocoWithIgnoredMembers>(
+            new() { X = 1, Y = 2 },
+            ExpectedJsonSchema: """
+            {
+              "type": [ "object", "null" ],
+              "properties": {
+                "X": { "type": "integer" }
+              }
+            }
+            """);
         yield return new TestData<PocoWithCustomNaming>(
             Value: new() { IntegerProperty = 1, StringProperty = "str" },
             ExpectedJsonSchema: """
             {
-              "type": "object",
+              "type": ["object","null"],
               "properties": {
                 "int": { "type": "integer" },
                 "str": { "type": [ "string", "null"] }
@@ -225,8 +235,8 @@ internal static partial class TestTypes
             Value: new() { X = 1 }, 
             ExpectedJsonSchema: """
             {
-                "type": "object",
-                "properties": { "X": { "type": ["string","integer"] } }
+                "type": ["object","null"],
+                "properties": { "X": { "type": ["string","integer"], "pattern": "^-?(?:0|[1-9]\\d*)$" } }
             }
             """);
 
@@ -239,21 +249,41 @@ internal static partial class TestTypes
             ],
             ExpectedJsonSchema: """
             {
-              "type": "object",
+              "type": ["object","null"],
               "properties": {
-                "X": { "type": ["string", "integer"] },
+                "X": { "type": ["string", "integer"], "pattern": "^-?(?:0|[1-9]\\d*)$" },
                 "Y": {
                   "anyOf": [
                     { "type": "number" },
                     { "enum": ["NaN", "Infinity", "-Infinity"]}
                   ]
                 },
-                "Z": { "type": ["string", "integer"] },
+                "Z": { "type": ["string", "integer"], "pattern": "^-?(?:0|[1-9]\\d*)$" },
                 "W" : { "type": "number" }
               }
             }
             """);
 
+        yield return new TestData<PocoWithRecursiveMembers>(
+            Value: new() { Value = 1, Next = new() { Value = 2, Next = new() { Value = 3 } } },
+            AdditionalValues: [null, new() { Value = 1, Next = null }],
+            ExpectedJsonSchema: """
+            {
+                "type": ["object","null"],
+                "properties": {
+                    "Value": { "type": "integer" },
+                    "Next": {
+                        "type": ["object","null"],
+                        "properties": {
+                            "Value": { "type": "integer" },
+                            "Next": { "$ref": "#/properties/Next" }
+                        }
+                    }
+                }
+            }
+            """);
+
+        // Same as above but with non-nullable reference types by default.
         yield return new TestData<PocoWithRecursiveMembers>(
             Value: new() { Value = 1, Next = new() { Value = 2, Next = new() { Value = 3 } } },
             AdditionalValues: [new() { Value = 1, Next = null }],
@@ -271,29 +301,15 @@ internal static partial class TestTypes
                     }
                 }
             }
-            """);
-
-        // Same as above but with nullable reference type resolution disabled
-        yield return new TestData<PocoWithRecursiveMembers>(
-            Value: new() { Value = 1, Next = new() { Value = 2, Next = new() { Value = 3 } } },
-            AdditionalValues: [null, new() { Value = 1, Next = null }],
-            ExpectedJsonSchema: """
-            {
-                "type": ["object", "null"],
-                "properties": {
-                    "Value": { "type": "integer" },
-                    "Next": { "$ref": "#" }
-                }
-            }
             """,
-            Configuration: new JsonSchemaMapperConfiguration { ReferenceTypeNullability = ReferenceTypeNullability.AlwaysNullable });
+            Configuration: new JsonSchemaMapperConfiguration { TreatNullObliviousAsNonNullable = true });
 
         yield return new TestData<PocoWithDescription>(
             Value: new() { X = 42 },
             ExpectedJsonSchema: """
             {
               "description": "The type description",
-              "type": "object",
+              "type": ["object","null"],
               "properties": {
                 "X": {
                   "description": "The property description",
@@ -304,7 +320,7 @@ internal static partial class TestTypes
             """);
 
         yield return new TestData<PocoWithCustomConverter>(new() { Value = 42 }, ExpectedJsonSchema: "{}");
-        yield return new TestData<PocoWithCustomPropertyConverter>(new() { Value = 42 }, ExpectedJsonSchema: """{"type":"object","properties":{"Value":{}}}""");
+        yield return new TestData<PocoWithCustomPropertyConverter>(new() { Value = 42 }, ExpectedJsonSchema: """{"type":["object","null"],"properties":{"Value":true}}""");
         yield return new TestData<PocoWithEnums>(
             Value: new()
             {
@@ -328,17 +344,53 @@ internal static partial class TestTypes
             ],
             ExpectedJsonSchema: """
             {
-                "type": "object",
+                "type": ["object","null"],
                 "properties": {
                     "IntEnum": { "type": "integer" },
-                    "StringEnum": { "type": "string", "enum": [ "A", "B", "C" ] },
-                    "IntEnumUsingStringConverter": { "type": "string", "enum": [ "A", "B", "C" ] },
-                    "NullableIntEnumUsingStringConverter": { "type": ["string", "null"], "enum": [ "A", "B", "C", null ] },
+                    "StringEnum": { "enum": [ "A", "B", "C" ] },
+                    "IntEnumUsingStringConverter": { "enum": [ "A", "B", "C" ] },
+                    "NullableIntEnumUsingStringConverter": { "enum": [ "A", "B", "C", null ] },
                     "StringEnumUsingIntConverter": { "type": "integer" },
                     "NullableStringEnumUsingIntConverter": { "type": [ "integer", "null" ] }
                 }
             }
             """);
+
+        yield return new TestData<PocoWithEnums>(
+            Value: new()
+            {
+                IntEnum = IntEnum.A,
+                StringEnum = StringEnum.B,
+                IntEnumUsingStringConverter = IntEnum.A,
+                NullableIntEnumUsingStringConverter = IntEnum.B,
+                StringEnumUsingIntConverter = StringEnum.A,
+                NullableStringEnumUsingIntConverter = StringEnum.B
+            },
+            AdditionalValues: [
+                new()
+                {
+                    IntEnum = (IntEnum)int.MaxValue,
+                    StringEnum = StringEnum.A,
+                    IntEnumUsingStringConverter = IntEnum.A,
+                    NullableIntEnumUsingStringConverter = null,
+                    StringEnumUsingIntConverter = (StringEnum)int.MaxValue,
+                    NullableStringEnumUsingIntConverter = null
+                },
+            ],
+            ExpectedJsonSchema: """
+                    {
+                        "type": ["object","null"],
+                        "properties": {
+                            "IntEnum": { "type": "integer" },
+                            "StringEnum": { "type":"string", "enum": [ "A", "B", "C" ] },
+                            "IntEnumUsingStringConverter": { "type":"string", "enum": [ "A", "B", "C" ] },
+                            "NullableIntEnumUsingStringConverter": { "type":["string","null"], "enum": [ "A", "B", "C", null ] },
+                            "StringEnumUsingIntConverter": { "type": "integer" },
+                            "NullableStringEnumUsingIntConverter": { "type": [ "integer", "null" ] }
+                        }
+                    }
+                    """,
+            Configuration: new() { IncludeTypeInEnums = true });
 
         var recordStruct = new SimpleRecordStruct(42, "str", true, 3.14);
         yield return new TestData<PocoWithStructFollowedByNullableStruct>(
@@ -346,7 +398,7 @@ internal static partial class TestTypes
             AdditionalValues: [new() { Struct = recordStruct, NullableStruct = recordStruct }],
             ExpectedJsonSchema: """
             {
-                "type": "object",
+                "type": ["object","null"],
                 "properties": {
                     "Struct": {
                         "type": "object",
@@ -375,7 +427,7 @@ internal static partial class TestTypes
             AdditionalValues: [new() { NullableStruct = recordStruct, Struct = recordStruct }],
             ExpectedJsonSchema: """
             {
-                "type": "object",
+                "type": ["object","null"],
                 "properties": {
                     "NullableStruct": {
                         "type": ["object","null"],
@@ -401,13 +453,13 @@ internal static partial class TestTypes
 
         yield return new TestData<PocoWithExtensionDataProperty>(
             Value: new() { Name = "name", ExtensionData = new() { ["x"] = 42 } },
-            ExpectedJsonSchema: """{"type":"object","properties":{"Name":{"type":["string","null"]}}}""");
+            ExpectedJsonSchema: """{"type":["object","null"],"properties":{"Name":{"type":["string","null"]}}}""");
 
         yield return new TestData<PocoDisallowingUnmappedMembers>(
             Value: new() { Name = "name", Age = 42 },
             ExpectedJsonSchema: """
             {
-                "type": "object",
+                "type": ["object","null"],
                 "properties": {
                     "Name": {"type":["string","null"]},
                     "Age": {"type":"integer"}
@@ -420,7 +472,7 @@ internal static partial class TestTypes
             Value: new() { MaybeNull = null!, AllowNull = null, NotNull = null, DisallowNull = null!, NotNullDisallowNull = "str" },
             ExpectedJsonSchema: """
             {
-                "type": "object",
+                "type": ["object","null"],
                 "properties": {
                     "MaybeNull": {"type":["string","null"]},
                     "AllowNull": {"type":["string","null"]},
@@ -435,7 +487,7 @@ internal static partial class TestTypes
             Value: new(allowNull: null, disallowNull: "str"),
             ExpectedJsonSchema: """
             {
-                "type": "object",
+                "type": ["object","null"],
                 "properties": {
                     "AllowNull": {"type":["string","null"]},
                     "DisallowNull": {"type":"string"}
@@ -448,7 +500,7 @@ internal static partial class TestTypes
             Value: new(null),
             ExpectedJsonSchema: """
             {
-                "type": "object",
+                "type": ["object","null"],
                 "properties": {
                     "Value": {"type":["string","null"]}
                 },
@@ -460,18 +512,18 @@ internal static partial class TestTypes
             Value: new(),
             ExpectedJsonSchema: """
             {
-                "type": "object",
+                "type": ["object","null"],
                 "properties": {
                     "X1": {"type":"string", "default": "str" },
                     "X2": {"type":"integer", "default": 42 },
                     "X3": {"type":"boolean", "default": true },
                     "X4": {"type":"number", "default": 0 },
-                    "X5": {"type":"string", "enum":["A","B","C"], "default": "A" },
+                    "X5": {"enum":["A","B","C"], "default": "A" },
                     "X6": {"type":["string","null"], "default": "str" },
                     "X7": {"type":["integer","null"], "default": 42 },
                     "X8": {"type":["boolean","null"], "default": true },
                     "X9": {"type":["number","null"], "default": 0 },
-                    "X10": {"type":["string","null"], "enum":["A","B","C", null], "default": "A" }
+                    "X10": {"enum":["A","B","C", null], "default": "A" }
                 }
             }
             """);
@@ -480,7 +532,7 @@ internal static partial class TestTypes
             Value: new(null!),
             ExpectedJsonSchema: """
             {
-                "type": "object",
+                "type": ["object","null"],
                 "properties": {
                     "Value": {"type":["string","null"]}
                 },
@@ -499,16 +551,15 @@ internal static partial class TestTypes
 
             ExpectedJsonSchema: """
             {
+                "type": ["object","null"],
                 "anyOf": [
                     {
-                        "type": "object",
                         "properties": {
                             "BaseValue": {"type":"integer"},
                             "DerivedValue": {"type":["string","null"]}
                         }
                     },
                     {
-                        "type": "object",
                         "properties": {
                             "$type": {"const":"derivedPoco"},
                             "BaseValue": {"type":"integer"},
@@ -517,7 +568,6 @@ internal static partial class TestTypes
                         "required": ["$type"]
                     },
                     {
-                        "type": "object",
                         "properties": {
                             "$type": {"const":42},
                             "BaseValue": {"type":"integer"},
@@ -526,7 +576,6 @@ internal static partial class TestTypes
                         "required": ["$type"]
                     },
                     {
-                        "type": "object",
                         "properties": {
                             "$type": {"const":"derivedCollection"},
                             "$values": {
@@ -537,7 +586,6 @@ internal static partial class TestTypes
                         "required": ["$type"]
                     },
                     {
-                        "type": "object",
                         "properties": {
                             "$type": {"const":"derivedDictionary"}
                         },
@@ -553,14 +601,7 @@ internal static partial class TestTypes
             AdditionalValues: [new NonAbstractClassWithSingleDerivedType.Derived()],
             ExpectedJsonSchema: """
             {
-                "anyOf": [
-                    {
-                        "type": "object"
-                    },
-                    {
-                        "type": "object"
-                    }
-                ]
+                "type": ["object","null"]
             }
             """);
 
@@ -568,19 +609,18 @@ internal static partial class TestTypes
             Value: new(),
             ExpectedJsonSchema: """
             {
-                "type": "object",
+                "type": ["object","null"],
                 "properties": {
                     "PolymorphicValue": {
+                        "type": "object",
                         "anyOf": [
                             {
-                                "type": "object",
                                 "properties": {
                                     "BaseValue": {"type":"integer"},
                                     "DerivedValue": {"type":["string","null"]}
                                 }
                             },
                             {
-                                "type": "object",
                                 "properties": {
                                     "$type": {"const":"derivedPoco"},
                                     "BaseValue": {"type":"integer"},
@@ -589,7 +629,6 @@ internal static partial class TestTypes
                                 "required": ["$type"]
                             },
                             {
-                                "type": "object",
                                 "properties": {
                                     "$type": {"const":42},
                                     "BaseValue": {"type":"integer"},
@@ -598,7 +637,6 @@ internal static partial class TestTypes
                                 "required": ["$type"]
                             },
                             {
-                                "type": "object",
                                 "properties": {
                                     "$type": {"const":"derivedCollection"},
                                     "$values": {
@@ -609,7 +647,6 @@ internal static partial class TestTypes
                                 "required": ["$type"]
                             },
                             {
-                                "type": "object",
                                 "properties": {
                                     "$type": {"const":"derivedDictionary"}
                                 },
@@ -618,7 +655,20 @@ internal static partial class TestTypes
                             }
                         ]
                     },
-                    "DerivedValue1": { "$ref": "#/properties/PolymorphicValue/anyOf/0" },
+                    "DerivedValue1": { 
+                        "type": "object",
+                        "properties": {
+                            "BaseValue": {
+                                "type": "integer"
+                            },
+                            "DerivedValue": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            }
+                        }
+                    },
                     "DerivedValue2": {
                         "type": "object",
                         "properties": {
@@ -634,7 +684,7 @@ internal static partial class TestTypes
             Value: new("string", -1),
             ExpectedJsonSchema: """
             {
-                "type": "object",
+                "type": ["object","null"],
                 "properties": {
                     "StringValue": {"type":"string","pattern":"\\w+"},
                     "IntValue": {"type":"integer","default":42}
@@ -644,40 +694,45 @@ internal static partial class TestTypes
             """,
             Configuration: new()
             {
-                OnSchemaGenerated = static (ctx, schema) =>
+                TransformSchemaNode = static (ctx, schema) =>
                 {
-                    if (ctx.PropertyInfo is null)
-                        return;
+                    if (ctx.PropertyInfo is null || schema is not JsonObject jObj)
+                        return schema;
 
                     if (ctx.GetAttribute<DefaultValueAttribute>() is { } attr)
-                        schema["default"] = JsonSerializer.SerializeToNode(attr.Value);
+                        jObj["default"] = JsonSerializer.SerializeToNode(attr.Value);
 
                     if (ctx.GetAttribute<RegularExpressionAttribute>() is { } regexAttr)
-                        schema["pattern"] = regexAttr.Pattern;
+                        jObj["pattern"] = regexAttr.Pattern;
+
+                    return jObj;
                 }
             });
 
         // Collection types
-        yield return new TestData<int[]>([1, 2, 3]);
-        yield return new TestData<List<bool>>([false, true, false]);
-        yield return new TestData<HashSet<string>>(["one", "two", "three"]);
-        yield return new TestData<Queue<double>>(new([1.1, 2.2, 3.3]));
-        yield return new TestData<Stack<char>>(new(['x', '2', '+']), ExpectedJsonSchema: """{"type":"array","items":{"type":"string"}}""");
-        yield return new TestData<ImmutableArray<int>>([1, 2, 3]);
-        yield return new TestData<ImmutableList<string>>(["one", "two", "three"]);
-        yield return new TestData<ImmutableQueue<bool>>([false, false, true]);
-        yield return new TestData<object[]>([1, "two", 3.14], ExpectedJsonSchema: """{"type":"array","items":{}}""");
-        yield return new TestData<System.Collections.ArrayList>([1, "two", 3.14], ExpectedJsonSchema: """{"type":"array","items":{}}""");
+        yield return new TestData<int[]>([1, 2, 3], ExpectedJsonSchema: """{"type":["array","null"],"items":{"type":"integer"}}""");
+        yield return new TestData<List<bool>>([false, true, false], ExpectedJsonSchema: """{"type":["array","null"],"items":{"type":"boolean"}}""");
+        yield return new TestData<HashSet<string>>(["one", "two", "three"], ExpectedJsonSchema: """{"type":["array","null"],"items":{"type":["string","null"]}}""");
+        yield return new TestData<Queue<double>>(new([1.1, 2.2, 3.3]), ExpectedJsonSchema: """{"type":["array","null"],"items":{"type":"number"}}""");
+        yield return new TestData<Stack<char>>(new(['x', '2', '+']), ExpectedJsonSchema: """{"type":["array","null"],"items":{"type":"string","minLength":1,"maxLength":1}}""");
+        yield return new TestData<ImmutableArray<int>>([1, 2, 3], ExpectedJsonSchema: """{"type":"array","items":{"type":"integer"}}""");
+        yield return new TestData<ImmutableList<string>>(["one", "two", "three"], ExpectedJsonSchema: """{"type":["array","null"],"items":{"type":["string","null"]}}""");
+        yield return new TestData<ImmutableQueue<bool>>([false, false, true], ExpectedJsonSchema: """{"type":["array","null"],"items":{"type":"boolean"}}""");
+        yield return new TestData<object[]>([1, "two", 3.14], ExpectedJsonSchema: """{"type":["array","null"]}""");
+        yield return new TestData<System.Collections.ArrayList>([1, "two", 3.14], ExpectedJsonSchema: """{"type":["array","null"]}""");
 
         // Dictionary types
-        yield return new TestData<Dictionary<string, int>>(new() { ["one"] = 1, ["two"] = 2, ["three"] = 3 });
+        yield return new TestData<Dictionary<string, int>>(
+            Value: new() { ["one"] = 1, ["two"] = 2, ["three"] = 3 },
+            ExpectedJsonSchema: """{"type":["object","null"],"additionalProperties":{"type": "integer"}}""");
+
         yield return new TestData<StructDictionary<string, int>>(
             Value: new([new("one", 1), new("two", 2), new("three", 3)]),
             ExpectedJsonSchema: """{"type":"object","additionalProperties":{"type": "integer"}}""");
 
         yield return new TestData<SortedDictionary<int, string>>(
             Value: new() { [1] = "one", [2] = "two", [3] = "three" }, 
-            ExpectedJsonSchema: """{"type":"object","additionalProperties":{"type": "string"}}""");
+            ExpectedJsonSchema: """{"type":["object","null"],"additionalProperties":{"type": ["string","null"]}}""");
 
         yield return new TestData<Dictionary<string, SimplePoco>>(
             Value: new()
@@ -688,7 +743,7 @@ internal static partial class TestTypes
             },
             ExpectedJsonSchema: """
             {
-                "type": "object",
+                "type": ["object","null"],
                 "additionalProperties": {
                     "properties": {
                         "String": { "type": "string" },
@@ -697,18 +752,18 @@ internal static partial class TestTypes
                         "Double": { "type": "number" },
                         "Boolean": { "type": "boolean" }
                     },
-                    "type": "object"
+                    "type": ["object","null"]
                 }
             }
             """);
 
         yield return new TestData<Dictionary<string, object>>(
             Value: new() { ["one"] = 1, ["two"] = "two", ["three"] = 3.14 }, 
-            ExpectedJsonSchema: """{"type":"object","additionalProperties":{}}""");
+            ExpectedJsonSchema: """{"type":["object","null"]}""");
 
         yield return new TestData<Hashtable>(
             Value: new() { ["one"] = 1, ["two"] = "two", ["three"] = 3.14 }, 
-            ExpectedJsonSchema: """{"type":"object","additionalProperties":{}}""");
+            ExpectedJsonSchema: """{"type":["object","null"]}""");
     }
 
     public enum IntEnum { A, B, C };
