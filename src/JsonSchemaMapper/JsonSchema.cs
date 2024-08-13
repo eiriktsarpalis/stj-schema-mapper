@@ -4,6 +4,7 @@
 #if !NET9_0_OR_GREATER && !SYSTEM_TEXT_JSON_V9
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Text.Json.Nodes;
 
@@ -11,6 +12,7 @@ namespace JsonSchemaMapper;
 
 // Simple JSON schema representation taken from System.Text.Json
 // https://github.com/dotnet/runtime/blob/50d6cad649aad2bfa4069268eddd16fd51ec5cf3/src/libraries/System.Text.Json/src/System/Text/Json/Schema/JsonSchema.cs
+[EditorBrowsable(EditorBrowsableState.Never)]
 internal sealed class JsonSchema
 {
     public static JsonSchema False { get; } = new(false);
