@@ -378,18 +378,18 @@ internal static partial class TestTypes
                 },
             ],
             ExpectedJsonSchema: """
-                    {
-                        "type": ["object","null"],
-                        "properties": {
-                            "IntEnum": { "type": "integer" },
-                            "StringEnum": { "type":"string", "enum": [ "A", "B", "C" ] },
-                            "IntEnumUsingStringConverter": { "type":"string", "enum": [ "A", "B", "C" ] },
-                            "NullableIntEnumUsingStringConverter": { "type":["string","null"], "enum": [ "A", "B", "C", null ] },
-                            "StringEnumUsingIntConverter": { "type": "integer" },
-                            "NullableStringEnumUsingIntConverter": { "type": [ "integer", "null" ] }
-                        }
-                    }
-                    """,
+            {
+                "type": ["object","null"],
+                "properties": {
+                    "IntEnum": { "type": "integer" },
+                    "StringEnum": { "type":"string", "enum": [ "A", "B", "C" ] },
+                    "IntEnumUsingStringConverter": { "type":"string", "enum": [ "A", "B", "C" ] },
+                    "NullableIntEnumUsingStringConverter": { "type":["string","null"], "enum": [ "A", "B", "C", null ] },
+                    "StringEnumUsingIntConverter": { "type": "integer" },
+                    "NullableStringEnumUsingIntConverter": { "type": [ "integer", "null" ] }
+                }
+            }
+            """,
             Configuration: new() { IncludeTypeInEnums = true });
 
         var recordStruct = new SimpleRecordStruct(42, "str", true, 3.14);
@@ -467,6 +467,27 @@ internal static partial class TestTypes
                 "additionalProperties": false
             }
             """);
+
+#if !NET9_0 // Disable until https://github.com/dotnet/runtime/pull/107545 gets backported
+        // Global JsonUnmappedMemberHandling.Disallow setting
+        yield return new TestData<SimplePoco>(
+            Value: new() { String = "string", StringNullable = "string", Int = 42, Double = 3.14, Boolean = true },
+            AdditionalValues: [new() { String = "str", StringNullable = null }, null],
+            ExpectedJsonSchema: """
+            {
+                "type": ["object","null"],
+                "properties": {
+                    "String": { "type": "string" },
+                    "StringNullable": { "type": ["string", "null"] },
+                    "Int": { "type": "integer" },
+                    "Double": { "type": "number" },
+                    "Boolean": { "type": "boolean" }
+                },
+                "additionalProperties": false
+            }
+            """,
+            Options: new() { UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow });
+#endif
 
         yield return new TestData<PocoWithNullableAnnotationAttributes>(
             Value: new() { MaybeNull = null!, AllowNull = null, NotNull = null, DisallowNull = null!, NotNullDisallowNull = "str" },
@@ -1176,7 +1197,8 @@ public record TestData<T>(
     T? Value, 
     IEnumerable<T?>? AdditionalValues = null,
     [StringSyntax("Json")] string? ExpectedJsonSchema = null,
-    JsonSchemaMapperConfiguration? Configuration = null)
+    JsonSchemaMapperConfiguration? Configuration = null,
+    JsonSerializerOptions? Options = null)
     : ITestData
 {
     public Type Type => typeof(T);
@@ -1209,6 +1231,8 @@ public interface ITestData
     string? ExpectedJsonSchema { get; }
 
     JsonSchemaMapperConfiguration? Configuration { get; }
+
+    JsonSerializerOptions? Options { get; }
 
     IEnumerable<ITestData> GetTestDataForAllValues();
 }

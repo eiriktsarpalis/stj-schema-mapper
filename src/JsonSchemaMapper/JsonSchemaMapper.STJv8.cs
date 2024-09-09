@@ -244,7 +244,8 @@ internal
                 List<string>? required = null;
                 JsonSchema? additionalProperties = null;
 
-                if (typeInfo.UnmappedMemberHandling is JsonUnmappedMemberHandling.Disallow)
+                JsonUnmappedMemberHandling effectiveUnmappedMemberHandling = typeInfo.UnmappedMemberHandling ?? typeInfo.Options.UnmappedMemberHandling;
+                if (effectiveUnmappedMemberHandling is JsonUnmappedMemberHandling.Disallow)
                 {
                     // Disallow unspecified properties.
                     additionalProperties = JsonSchema.False;

@@ -16,7 +16,11 @@ public abstract class JsonSchemaMapperTests
     [MemberData(nameof(TestTypes.GetTestData), MemberType = typeof(TestTypes))]
     public void TestTypes_GeneratesExpectedJsonSchema(ITestData testData)
     {
-        JsonNode schema = Options.GetJsonSchema(testData.Type, testData.Configuration);
+        JsonSerializerOptions options = testData.Options is { } opts
+            ? new(opts) { TypeInfoResolver = Options.TypeInfoResolver }
+            : Options;
+
+        JsonNode schema = options.GetJsonSchema(testData.Type, testData.Configuration);
         Helpers.AssertValidJsonSchema(testData.Type, testData.ExpectedJsonSchema, schema);
     }
 
@@ -24,8 +28,12 @@ public abstract class JsonSchemaMapperTests
     [MemberData(nameof(TestTypes.GetTestDataUsingAllValues), MemberType = typeof(TestTypes))]
     public void TestTypes_SerializedValueMatchesGeneratedSchema(ITestData testData)
     {
-        JsonNode schema = Options.GetJsonSchema(testData.Type, testData.Configuration);
-        JsonNode? instance = JsonSerializer.SerializeToNode(testData.Value, testData.Type, Options);
+        JsonSerializerOptions options = testData.Options is { } opts
+            ? new(opts) { TypeInfoResolver = Options.TypeInfoResolver }
+            : Options;
+
+        JsonNode schema = options.GetJsonSchema(testData.Type, testData.Configuration);
+        JsonNode? instance = JsonSerializer.SerializeToNode(testData.Value, testData.Type, options);
         Helpers.AssertDocumentMatchesSchema(schema, instance);
     }
 
