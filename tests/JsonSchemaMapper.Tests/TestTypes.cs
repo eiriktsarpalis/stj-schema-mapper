@@ -626,6 +626,20 @@ internal static partial class TestTypes
             }
             """);
 
+#if !NET9_0 // Disable until https://github.com/microsoft/semantic-kernel/issues/8983 gets backported to .NET 9
+        yield return new TestData<ClassWithOptionalObjectParameter>(
+            Value: new(value: null), 
+            AdditionalValues: [new(true), new(42), new(""), new(new object()), new(Array.Empty<int>())],
+            ExpectedJsonSchema: """
+            {
+                "type": ["object","null"],
+                "properties": {
+                  "Value": { "default": null }
+                }
+            }
+            """);
+#endif
+
         yield return new TestData<PocoCombiningPolymorphicTypeAndDerivedTypes>(
             Value: new(),
             ExpectedJsonSchema: """
@@ -1072,6 +1086,11 @@ internal static partial class TestTypes
         public int IntValue { get; }
     }
 
+    public class ClassWithOptionalObjectParameter(object? value = null)
+    {
+        public object? Value { get; } = value;
+    }
+
     public readonly struct StructDictionary<TKey, TValue>(IEnumerable<KeyValuePair<TKey, TValue>> values)
         : IReadOnlyDictionary<TKey, TValue>
         where TKey : notnull
@@ -1173,6 +1192,7 @@ internal static partial class TestTypes
     [JsonSerializable(typeof(NonAbstractClassWithSingleDerivedType))]
     [JsonSerializable(typeof(PocoCombiningPolymorphicTypeAndDerivedTypes))]
     [JsonSerializable(typeof(ClassWithComponentModelAttributes))]
+    [JsonSerializable(typeof(ClassWithOptionalObjectParameter))]
     // Collection types
     [JsonSerializable(typeof(int[]))]
     [JsonSerializable(typeof(List<bool>))]
