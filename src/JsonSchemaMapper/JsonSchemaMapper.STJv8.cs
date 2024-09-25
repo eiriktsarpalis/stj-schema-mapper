@@ -75,6 +75,7 @@ internal
 
         if (hasDefaultValue)
         {
+            JsonSchema.EnsureMutable(ref paramSchema);
             paramSchema.DefaultValue = defaultValue;
             paramSchema.HasDefaultValue = true;
         }
@@ -330,6 +331,7 @@ internal
 
                     if (hasDefaultValue)
                     {
+                        JsonSchema.EnsureMutable(ref propertySchema);
                         propertySchema.DefaultValue = defaultValue;
                         propertySchema.HasDefaultValue = true;
                     }
