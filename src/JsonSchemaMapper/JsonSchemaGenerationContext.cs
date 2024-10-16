@@ -19,19 +19,30 @@ internal
 #endif
     readonly struct JsonSchemaGenerationContext
 {
+    internal readonly string[] _path;
+
     internal JsonSchemaGenerationContext(
         JsonTypeInfo typeInfo,
+        JsonTypeInfo? baseTypeInfo,
         Type? declaringType,
         JsonPropertyInfo? propertyInfo,
         ParameterInfo? parameterInfo,
-        ICustomAttributeProvider? propertyAttributeProvider)
+        ICustomAttributeProvider? propertyAttributeProvider,
+        string[] path)
     {
         TypeInfo = typeInfo;
         DeclaringType = declaringType;
+        BaseTypeInfo = baseTypeInfo;
         PropertyInfo = propertyInfo;
         ParameterInfo = parameterInfo;
         PropertyAttributeProvider = propertyAttributeProvider;
+        _path = path;
     }
+
+    /// <summary>
+    /// The path to the schema document currently being generated.
+    /// </summary>
+    public ReadOnlySpan<string> Path => _path;
 
     /// <summary>
     /// The <see cref="JsonTypeInfo"/> for the type being processed.
@@ -42,6 +53,11 @@ internal
     /// The declaring type of the property or parameter being processed.
     /// </summary>
     public Type? DeclaringType { get; }
+
+    /// <summary>
+    /// The type info for the polymorphic base type if generated as a derived type.
+    /// </summary>
+    public JsonTypeInfo? BaseTypeInfo { get; }
 
     /// <summary>
     /// The <see cref="JsonPropertyInfo"/> if the schema is being generated for a property.
