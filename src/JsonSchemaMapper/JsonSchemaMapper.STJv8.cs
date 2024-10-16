@@ -10,6 +10,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -105,9 +106,12 @@ internal
     {
         Debug.Assert(typeInfo.IsReadOnly);
 
-        if (cacheResult && state.TryPushType(typeInfo, propertyInfo, out string? existingJsonPointer))
+        JsonSchemaGenerationContext exporterContext = state.CreateContext(typeInfo, parentPolymorphicTypeInfo, parentType, propertyInfo, parameterInfo, propertyAttributeProvider);
+
+        if (cacheResult && typeInfo.Kind is not JsonTypeInfoKind.None &&
+            state.TryGetExistingJsonPointer(exporterContext, out string? existingJsonPointer))
         {
-            // We're generating the schema of a recursive type, return a reference pointing to the outermost schema.
+            // The schema context has already been generated in the schema document, return a reference to it.
             return CompleteSchema(ref state, new JsonSchema { Ref = existingJsonPointer });
         }
 
@@ -479,17 +483,12 @@ internal
                 {
                     schema.MakeNullable();
                 }
-
-                if (cacheResult)
-                {
-                    state.PopGeneratedType();
-                }
             }
 
             if (state.Configuration.TransformSchemaNode != null)
             {
                 // Prime the schema for invocation by the JsonNode transformer.
-                schema.GenerationContext = new(typeInfo, parentType, propertyInfo, parameterInfo, propertyAttributeProvider);
+                schema.GenerationContext = exporterContext;
             }
 
             return schema;
@@ -498,8 +497,8 @@ internal
 
     private readonly ref struct GenerationState
     {
-        private readonly List<string> _currentPath;
-        private readonly List<(JsonTypeInfo typeInfo, JsonPropertyInfo? propertyInfo, int depth)> _generationStack;
+        private readonly List<string> _currentPath = new();
+        private readonly Dictionary<(JsonTypeInfo, JsonPropertyInfo?), string[]> _generated = new();
         private readonly int _maxDepth;
 
         public GenerationState(JsonSchemaMapperConfiguration configuration, JsonSerializerOptions options, NullabilityInfoContext? nullabilityInfoContext = null)
@@ -507,8 +506,6 @@ internal
             Configuration = configuration;
             NullabilityInfoContext = nullabilityInfoContext ?? new();
             _maxDepth = options.MaxDepth is 0 ? 64 : options.MaxDepth;
-            _generationStack = new();
-            _currentPath = new();
         }
 
         public JsonSchemaMapperConfiguration Configuration { get; }
@@ -531,35 +528,44 @@ internal
         }
 
         /// <summary>
-        /// Pushes the current type/property to the generation stack or returns a JSON pointer if the type is recursive.
+        /// Registers the current schema node generation context; if it has already been generated return a JSON pointer to its location.
         /// </summary>
-        public bool TryPushType(JsonTypeInfo typeInfo, JsonPropertyInfo? propertyInfo, [NotNullWhen(true)] out string? existingJsonPointer)
+        public bool TryGetExistingJsonPointer(in JsonSchemaGenerationContext context, [NotNullWhen(true)] out string? existingJsonPointer)
         {
-            foreach ((JsonTypeInfo otherTypeInfo, JsonPropertyInfo? otherPropertyInfo, int depth) in _generationStack)
+            (JsonTypeInfo TypeInfo, JsonPropertyInfo? PropertyInfo) key = (context.TypeInfo, context.PropertyInfo);
+#if NET
+            ref string[]? pathToSchema = ref CollectionsMarshal.GetValueRefOrAddDefault(_generated, key, out bool exists);
+#else
+            bool exists = _generated.TryGetValue(key, out string[]? pathToSchema);
+#endif
+            if (exists)
             {
-                if (typeInfo == otherTypeInfo && propertyInfo == otherPropertyInfo)
-                {
-                    existingJsonPointer = FormatJsonPointer(_currentPath, depth);
-                    return true;
-                }
+                existingJsonPointer = FormatJsonPointer(pathToSchema);
+                return true;
             }
-
-            _generationStack.Add((typeInfo, propertyInfo, CurrentDepth));
+#if NET
+            pathToSchema = context._path;
+#else
+            _generated[key] = context._path;
+#endif
             existingJsonPointer = null;
             return false;
         }
 
-        public void PopGeneratedType()
+        public JsonSchemaGenerationContext CreateContext(
+            JsonTypeInfo typeInfo,
+            JsonTypeInfo? baseTypeInfo,
+            Type? declaringType,
+            JsonPropertyInfo? propertyInfo,
+            ParameterInfo? parameterInfo,
+            ICustomAttributeProvider? propertyAttributeProvider)
         {
-            Debug.Assert(_generationStack.Count > 0);
-            _generationStack.RemoveAt(_generationStack.Count - 1);
+            return new JsonSchemaGenerationContext(typeInfo, baseTypeInfo, declaringType, propertyInfo, parameterInfo, propertyAttributeProvider, _currentPath.ToArray());
         }
 
-        private static string FormatJsonPointer(List<string> currentPathList, int depth)
+        private static string FormatJsonPointer(ReadOnlySpan<string> path)
         {
-            Debug.Assert(0 <= depth && depth < currentPathList.Count);
-
-            if (depth == 0)
+            if (path.IsEmpty)
             {
                 return "#";
             }
@@ -567,9 +573,9 @@ internal
             StringBuilder sb = new();
             sb.Append('#');
 
-            for (int i = 0; i < depth; i++)
+            for (int i = 0; i < path.Length; i++)
             {
-                string segment = currentPathList[i];
+                string segment = path[i];
                 if (segment.AsSpan().IndexOfAny('~', '/') != -1)
                 {
                     segment = segment.Replace("~", "~0").Replace("/", "~1");

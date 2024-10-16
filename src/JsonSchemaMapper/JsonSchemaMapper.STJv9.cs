@@ -112,10 +112,12 @@ internal
     {
         JsonSchemaGenerationContext mapperCtx = new(
             ctx.TypeInfo,
-            ctx.TypeInfo.Type,
+            ctx.BaseTypeInfo,
+            ctx.PropertyInfo?.DeclaringType,
             ctx.PropertyInfo,
             (ParameterInfo?)ctx.PropertyInfo?.AssociatedParameter?.AttributeProvider,
-            ctx.PropertyInfo?.AttributeProvider);
+            ctx.PropertyInfo?.AttributeProvider,
+            ctx.Path.ToArray());
 
         if (configuration.IncludeTypeInEnums)
         {

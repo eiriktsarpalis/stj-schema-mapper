@@ -6,6 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using System.Xml.Linq;
 
 namespace JsonSchemaMapper.Tests;
 
@@ -303,6 +304,64 @@ internal static partial class TestTypes
             }
             """,
             Configuration: new JsonSchemaMapperConfiguration { TreatNullObliviousAsNonNullable = true });
+
+#if !NET9_0 // Disable until https://github.com/dotnet/runtime/pull/108764 gets backported
+        SimpleRecord recordValue = new(42, "str", true, 3.14);
+        yield return new TestData<PocoWithNonRecursiveDuplicateOccurrences>(
+            Value: new() { Value1 = recordValue, Value2 = recordValue, ArrayValue = [recordValue], ListValue = [recordValue] },
+            ExpectedJsonSchema: """
+                {
+                  "type": ["object","null"],
+                  "properties": {
+                    "Value1": {
+                      "type": ["object","null"],
+                      "properties": {
+                        "X": { "type": "integer" },
+                        "Y": { "type": "string" },
+                        "Z": { "type": "boolean" },
+                        "W": { "type": "number" }
+                      },
+                      "required": ["X", "Y", "Z", "W"]
+                    },
+                    /* The same type on a different property is repeated to
+                       account for potential metadata resolved from attributes. */
+                    "Value2": {
+                      "type": ["object","null"],
+                      "properties": {
+                        "X": { "type": "integer" },
+                        "Y": { "type": "string" },
+                        "Z": { "type": "boolean" },
+                        "W": { "type": "number" }
+                      },
+                      "required": ["X", "Y", "Z", "W"]
+                    },
+                    /* This collection element is the first occurrence
+                       of the type without contextual metadata. */
+                    "ListValue": {
+                      "type": ["array","null"],
+                      "items": {
+                        "type": ["object","null"],
+                        "properties": {
+                          "X": { "type": "integer" },
+                          "Y": { "type": "string" },
+                          "Z": { "type": "boolean" },
+                          "W": { "type": "number" }
+                        },
+                        "required": ["X", "Y", "Z", "W"]
+                      }
+                    },
+                    /* This collection element is the second occurrence
+                       of the type which points to the first occurrence. */
+                    "ArrayValue": {
+                      "type": ["array","null"],
+                      "items": {
+                        "$ref": "#/properties/ListValue/items"
+                      }
+                    }
+                  }
+                }
+                """);
+#endif
 
         yield return new TestData<PocoWithDescription>(
             Value: new() { X = 42 },
@@ -881,6 +940,14 @@ internal static partial class TestTypes
         public PocoWithRecursiveMembers? Next { get; init; }
     }
 
+    public class PocoWithNonRecursiveDuplicateOccurrences
+    {
+        public SimpleRecord? Value1 { get; set; }
+        public SimpleRecord? Value2 { get; set; }
+        public List<SimpleRecord>? ListValue { get; set; }
+        public SimpleRecord[]? ArrayValue { get; set; }
+    }
+
     [Description("The type description")]
     public class PocoWithDescription
     {
@@ -1175,6 +1242,7 @@ internal static partial class TestTypes
     [JsonSerializable(typeof(PocoWithCustomNumberHandling))]
     [JsonSerializable(typeof(PocoWithCustomNumberHandlingOnProperties))]
     [JsonSerializable(typeof(PocoWithRecursiveMembers))]
+    [JsonSerializable(typeof(PocoWithNonRecursiveDuplicateOccurrences))]
     [JsonSerializable(typeof(PocoWithDescription))]
     [JsonSerializable(typeof(PocoWithCustomConverter))]
     [JsonSerializable(typeof(PocoWithCustomPropertyConverter))]
@@ -1210,6 +1278,7 @@ internal static partial class TestTypes
     [JsonSerializable(typeof(Dictionary<string, object>))]
     [JsonSerializable(typeof(Hashtable))]
     [JsonSerializable(typeof(StructDictionary<string, int>))]
+    [JsonSerializable(typeof(XElement))]
     public partial class TestTypesContext : JsonSerializerContext;
 }
 

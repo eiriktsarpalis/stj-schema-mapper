@@ -13,7 +13,7 @@ internal static partial class Helpers
     {
         // If an expected schema is provided, use that. Otherwise, generate a schema from the type.
         JsonNode? expectedJsonSchemaNode = expectedJsonSchema != null
-            ? JsonNode.Parse(expectedJsonSchema)
+            ? JsonNode.Parse(expectedJsonSchema, documentOptions: new() { CommentHandling = JsonCommentHandling.Skip })
             : JsonSerializer.SerializeToNode(new JsonSchemaBuilder().FromType(type), Context.Default.JsonSchema);
 
         // Trim the $schema property from actual schema since it's not included by the generator.

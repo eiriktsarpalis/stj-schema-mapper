@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
+using System.Xml.Linq;
 using Xunit;
 
 namespace JsonSchemaMapper.Tests;
@@ -102,6 +103,15 @@ public abstract class JsonSchemaMapperTests
         JsonValue value = Assert.IsAssignableFrom<JsonValue>(schema["type"]);
         Assert.Equal(expectedType, (string)value!);
     }
+
+#if !NET9_0 // Disable until https://github.com/dotnet/runtime/pull/108764 gets backported
+    [Fact]
+    public void CanGenerateXElementSchema()
+    {
+        JsonNode schema = Options.GetJsonSchema(typeof(XElement));
+        Assert.True(schema.ToJsonString().Length < 100_000);
+    }
+#endif
 
     [Fact]
     public void TreatNullObliviousAsNonNullable_True_DoesNotImpactObjectType()
