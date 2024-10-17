@@ -17,7 +17,15 @@ test: build
 	dotnet test -c $(CONFIGURATION) $(ADDITIONAL_ARGS) $(CODECOV_ARGS)
 	grep -h "<package name=" $(ARTIFACT_PATH)/**/coverage.cobertura.xml
 
-pack: test
+build-nativeaot: test
+	dotnet publish -f net8.0 -o $(ARTIFACT_PATH)/consoleapp/net8.0 samples/ConsoleApp
+	dotnet publish -f net9.0 -o $(ARTIFACT_PATH)/consoleapp/net9.0 samples/ConsoleApp
+
+test-nativeaot: build-nativeaot
+	$(shell find $(ARTIFACT_PATH)/consoleapp/net8.0/ | grep -E 'ConsoleApp(\.exe)?$$')
+	$(shell find $(ARTIFACT_PATH)/consoleapp/net9.0/ | grep -E 'ConsoleApp(\.exe)?$$')
+
+pack: test-nativeaot
 	dotnet pack -c $(CONFIGURATION) $(ADDITIONAL_ARGS)
 
 push:

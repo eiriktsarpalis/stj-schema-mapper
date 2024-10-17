@@ -39,6 +39,9 @@ internal
     /// <returns>A new <see cref="JsonNode"/> instance defining the JSON schema for <paramref name="type"/>.</returns>
     /// <exception cref="ArgumentNullException">One of the specified parameters is <see langword="null" />.</exception>
     /// <exception cref="NotSupportedException">The <paramref name="options"/> parameter contains unsupported configuration.</exception>
+#if !NET9_0_OR_GREATER && !SYSTEM_TEXT_JSON_V9
+    [RequiresUnreferencedCode(RequiresUnreferencedCodeMessage)]
+#endif
     public static JsonNode GetJsonSchema(this JsonSerializerOptions options, Type type, JsonSchemaMapperConfiguration? configuration = null)
     {
         if (options is null)
@@ -66,6 +69,9 @@ internal
     /// <returns>A new <see cref="JsonNode"/> instance defining the JSON schema for <paramref name="method"/>.</returns>
     /// <exception cref="ArgumentNullException">One of the specified parameters is <see langword="null" />.</exception>
     /// <exception cref="NotSupportedException">The <paramref name="options"/> parameter contains unsupported configuration.</exception>
+#if !NET9_0_OR_GREATER && !SYSTEM_TEXT_JSON_V9
+    [RequiresUnreferencedCode(RequiresUnreferencedCodeMessage)]
+#endif
     public static JsonNode GetJsonSchema(this JsonSerializerOptions options, MethodBase method, JsonSchemaMapperConfiguration? configuration = null)
     {
         if (options is null)
@@ -145,6 +151,9 @@ internal
     /// <returns>A new <see cref="JsonNode"/> instance defining the JSON schema for <paramref name="typeInfo"/>.</returns>
     /// <exception cref="ArgumentNullException">One of the specified parameters is <see langword="null" />.</exception>
     /// <exception cref="NotSupportedException">The <paramref name="typeInfo"/> parameter contains unsupported configuration.</exception>
+#if !NET9_0_OR_GREATER && !SYSTEM_TEXT_JSON_V9
+    [RequiresUnreferencedCode(RequiresUnreferencedCodeMessage)]
+#endif
     public static JsonNode GetJsonSchema(this JsonTypeInfo typeInfo, JsonSchemaMapperConfiguration? configuration = null)
     {
         if (typeInfo is null)
