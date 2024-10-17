@@ -32,6 +32,11 @@ internal
     // While the implementation is forward compatible with .NET 9, it is not guaranteed that it will work with
     // later versions of .NET and users are encouraged to switch to the built-in JsonSchemaExporter eventually.
 
+    private const string RequiresUnreferencedCodeMessage =
+        "Uses private reflection on System.Text.Json components to access converter metadata. " +
+        "If running Native AOT ensure that the 'IlcTrimMetadata' property has been disabled.";
+
+    [RequiresUnreferencedCode(RequiresUnreferencedCodeMessage)]
     private static partial JsonNode MapRootTypeJsonSchema(JsonTypeInfo typeInfo, JsonSchemaMapperConfiguration configuration)
     {
         GenerationState state = new(configuration, typeInfo.Options);
@@ -39,6 +44,7 @@ internal
         return schema.ToJsonNode(configuration);
     }
 
+    [RequiresUnreferencedCode(RequiresUnreferencedCodeMessage)]
     private static partial JsonNode MapMethodParameterJsonSchema(
         ParameterInfo parameterInfo,
         JsonTypeInfo parameterTypeInfo,
@@ -87,6 +93,7 @@ internal
         return paramSchema.ToJsonNode(configuration);
     }
 
+    [RequiresUnreferencedCode(RequiresUnreferencedCodeMessage)]
     private static JsonSchema MapJsonSchemaCore(
         ref GenerationState state,
         JsonTypeInfo typeInfo,
@@ -691,17 +698,11 @@ internal
 
     private static PropertyInfo? s_elementTypeProperty;
 
-    // The source generator currently doesn't populate attribute providers for properties
+    // The .NET 8 source generator doesn't populate attribute providers for properties
     // cf. https://github.com/dotnet/runtime/issues/100095
     // Work around the issue by running a query for the relevant MemberInfo using the internal MemberName property
     // https://github.com/dotnet/runtime/blob/de774ff9ee1a2c06663ab35be34b755cd8d29731/src/libraries/System.Text.Json/src/System/Text/Json/Serialization/Metadata/JsonPropertyInfo.cs#L206
-#if NETCOREAPP
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    [UnconditionalSuppressMessage("Trimming", "IL2075:'this' argument does not satisfy 'DynamicallyAccessedMembersAttribute' in call to target method. The return value of the source method does not have matching annotations.",
-        Justification = "We're reading the internal JsonPropertyInfo.MemberName which cannot have been trimmed away.")]
-    [UnconditionalSuppressMessage("Trimming", "IL2070:'this' argument does not satisfy 'DynamicallyAccessedMembersAttribute' in call to target method. The parameter of method does not have matching annotations.",
-        Justification = "We're reading the member which is already accessed by the source generator.")]
-#endif
+    [RequiresUnreferencedCode(RequiresUnreferencedCodeMessage)]
     private static ICustomAttributeProvider? ResolveAttributeProvider(Type? declaringType, JsonPropertyInfo? propertyInfo)
     {
         if (declaringType is null || propertyInfo is null)
@@ -727,10 +728,7 @@ internal
     private static PropertyInfo? s_memberNameProperty;
 
     // Uses reflection to determine any custom converters specified for the element of a nullable type.
-#if NETCOREAPP
-    [UnconditionalSuppressMessage("Trimming", "IL2026",
-        Justification = "We're resolving private fields of the built-in Nullable converter which cannot have been trimmed away.")]
-#endif
+    [RequiresUnreferencedCode(RequiresUnreferencedCodeMessage)]
     private static JsonConverter? ExtractCustomNullableConverter(JsonConverter? converter)
     {
         Debug.Assert(converter is null || IsBuiltInConverter(converter));
@@ -749,10 +747,7 @@ internal
 
     // Uses reflection to determine schema for enum types
     // Adapted from https://github.com/dotnet/runtime/blob/d606c601510c1a1a28cb6ef3550f12db049c0776/src/libraries/System.Text.Json/src/System/Text/Json/Serialization/Converters/Value/EnumConverter.cs#L498-L521
-#if NETCOREAPP
-    [UnconditionalSuppressMessage("Trimming", "IL2026",
-        Justification = "We're resolving private fields of the built-in enum converter which cannot have been trimmed away.")]
-#endif
+    [RequiresUnreferencedCode(RequiresUnreferencedCodeMessage)]
     private static JsonSchema GetEnumConverterSchema(JsonTypeInfo typeInfo, JsonConverter converter, JsonSchemaMapperConfiguration configuration)
     {
         Debug.Assert(typeInfo.Type.IsEnum && IsBuiltInConverter(converter));
@@ -801,9 +796,7 @@ internal
         return new() { Type = JsonSchemaType.Integer };
     }
 
-#if NETCOREAPP
-    [RequiresUnreferencedCode("Resolves unreferenced member metadata.")]
-#endif
+    [RequiresUnreferencedCode(RequiresUnreferencedCodeMessage)]
     private static FieldInfo GetPrivateFieldWithPotentiallyTrimmedMetadata(this Type type, string fieldName)
     {
         FieldInfo? field = type.GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
@@ -818,10 +811,7 @@ internal
     }
 
     // Resolves the parameters of the deserialization constructor for a type, if they exist.
-#if NETCOREAPP
-    [UnconditionalSuppressMessage("Trimming", "IL2072:Target parameter argument does not satisfy 'DynamicallyAccessedMembersAttribute' in call to target method. The return value of the source method does not have matching annotations.",
-        Justification = "The deserialization constructor should have already been referenced by the source generator and therefore will not have been trimmed.")]
-#endif
+    [RequiresUnreferencedCode(RequiresUnreferencedCodeMessage)]
     private static Func<JsonPropertyInfo, ParameterInfo?>? ResolveJsonConstructorParameterMapper(JsonTypeInfo typeInfo)
     {
         Debug.Assert(typeInfo.Kind is JsonTypeInfoKind.Object);
@@ -872,7 +862,7 @@ internal
     // Resolves the deserialization constructor for a type using logic copied from
     // https://github.com/dotnet/runtime/blob/e12e2fa6cbdd1f4b0c8ad1b1e2d960a480c21703/src/libraries/System.Text.Json/Common/ReflectionExtensions.cs#L227-L286
     private static bool TryGetDeserializationConstructor(
-#if NETCOREAPP
+#if NET
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.NonPublicConstructors)]
 #endif
         this Type type,

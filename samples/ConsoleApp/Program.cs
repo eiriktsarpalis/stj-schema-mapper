@@ -33,14 +33,12 @@ var forecast = new WeatherForecast
     ]
 };
 
-Console.WriteLine(JsonSerializer.Serialize(forecast, MyContext.Default.WeatherForecast));
-
 JsonNode schema = MyContext.Default.WeatherForecast.GetJsonSchema();
-Console.WriteLine(schema.ToJsonString(writeIndented: true));
+Console.WriteLine(schema.ToString());
 
 MethodInfo method = typeof(MyKernelPlugin).GetMethod(nameof(MyKernelPlugin.ShouldStepOutside))!;
 schema = MyContext.Default.Options.GetJsonSchema(method);
-Console.WriteLine(schema.ToJsonString(writeIndented: true));
+Console.WriteLine(schema.ToString());
 
 record WeatherForecast
 {

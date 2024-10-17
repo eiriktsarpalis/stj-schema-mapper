@@ -2,13 +2,16 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PublishAot>true</PublishAot>
-    <IlcTrimMetadata>false</IlcTrimMetadata>
     <InvariantGlobalization>true</InvariantGlobalization>
     <PublishDir>artifacts</PublishDir>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0'">
+    <IlcTrimMetadata>false</IlcTrimMetadata>
   </PropertyGroup>
 
   <ItemGroup>
