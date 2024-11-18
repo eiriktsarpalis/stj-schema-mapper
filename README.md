@@ -1,7 +1,7 @@
 # stj-schema-mapper [![Build & Tests](https://github.com/eiriktsarpalis/stj-schema-mapper/actions/workflows/build.yml/badge.svg)](https://github.com/eiriktsarpalis/stj-schema-mapper/actions/workflows/build.yml)
 
 > [!IMPORTANT]
-> This project has been supersed by the `JsonSchemaExporter` type released with .NET 9 and the System.Text.Json 9.0.0 NuGet package. AI applications looking for a System.Text.Json 8.0.0 compatible polyfill can also use the functionality available in the `AIJsonUtilities` class in the newly released Microsoft.Extensions.AI package.
+> This project has been superseded by the `JsonSchemaExporter` type [released with .NET 9](https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/extract-schema) and the System.Text.Json 9.0.0 NuGet package. AI applications looking for a System.Text.Json 8.0.0 compatible polyfill can also use the functionality available in the [`AIJsonUtilities` class](https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.ai.aijsonutilities?view=net-8.0-pp) in the newly released Microsoft.Extensions.AI package.
 
 A JSON schema generator for System.Text.Json, deriving metadata information from the `JsonTypeInfo` contract type. The library targets `netstandard2.0` and is safe to use in AOT applications.
 
